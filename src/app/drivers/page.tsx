@@ -54,8 +54,8 @@ export default function DriversPage() {
       
       const data = await response.json();
       setDriversData(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -132,7 +132,7 @@ export default function DriversPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Drivers Summary</h1>
-              <p className="text-gray-600">Overview of drivers' front load, back load, and allowance amounts</p>
+              <p className="text-gray-600">Overview of drivers&apos; front load, back load, and allowance amounts</p>
             </div>
             <div className="flex space-x-4">
               <Link

@@ -87,7 +87,7 @@ export default function Dashboard() {
               <Link href="/drivers" className="block">
                 <div className="bg-orange-50 p-6 rounded-lg hover:bg-orange-100 transition-colors cursor-pointer">
                   <h3 className="text-lg font-semibold text-orange-900 mb-2">Drivers Summary</h3>
-                  <p className="text-orange-700">View drivers' front load, back load, and allowances</p>
+                  <p className="text-orange-700">View drivers&apos; front load, back load, and allowances</p>
                 </div>
               </Link>
               

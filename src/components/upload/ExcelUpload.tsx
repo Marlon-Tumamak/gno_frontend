@@ -12,7 +12,7 @@ interface UploadResponse {
 
 interface PreviewData {
   headers: string[];
-  rows: any[][];
+  rows: (string | number | undefined)[][];
 }
 
 const uploadTypes = [
@@ -141,7 +141,7 @@ export default function ExcelUpload() {
       const worksheet = workbook.Sheets[sheetName];
       
       // Convert to JSON with header row
-      const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { 
+      const jsonData: (string | number | undefined)[][] = XLSX.utils.sheet_to_json(worksheet, { 
         header: 1,
         raw: false,
         dateNF: 'MM/DD/YYYY'
@@ -180,7 +180,8 @@ export default function ExcelUpload() {
     formData.append('file', file);
 
     const selectedType = uploadTypes.find(type => type.value === uploadType);
-    const uploadUrl = `http://127.0.0.1:8000/api/v1/${selectedType?.endpoint}`;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+    const uploadUrl = `${apiUrl}/api/v1/${selectedType?.endpoint}`;
 
     try {
       const res = await fetch(uploadUrl, {

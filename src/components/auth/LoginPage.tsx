@@ -19,12 +19,13 @@ export default function LoginPage() {
     }
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('userEmail');
-    setEmail('yatangrao215@gmail.com');
-    setPassword('');
-  };
+  // Logout handler for future use
+  // const handleLogout = () => {
+  //   localStorage.removeItem('isLoggedIn');
+  //   localStorage.removeItem('userEmail');
+  //   setEmail('yatangrao215@gmail.com');
+  //   setPassword('');
+  // };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,7 +283,7 @@ export default function LoginPage() {
 
             <div className="text-center">
               <span className="text-sm text-gray-600">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <button
                   type="button"
                   onClick={() => setShowSignup(true)}

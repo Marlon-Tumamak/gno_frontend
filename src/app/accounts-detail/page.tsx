@@ -49,7 +49,8 @@ export default function AccountsDetailPage() {
   const fetchAccountsData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://127.0.0.1:8000/api/v1/accounts/detail/');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiUrl}/api/v1/accounts/detail/`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch accounts detail data');
@@ -57,8 +58,8 @@ export default function AccountsDetailPage() {
       
       const data = await response.json();
       setAccountsData(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }

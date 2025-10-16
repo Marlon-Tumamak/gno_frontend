@@ -43,7 +43,8 @@ export default function TripsPage() {
   const fetchTripsData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://127.0.0.1:8000/api/v1/trips/');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiUrl}/api/v1/trips/`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch trips data');
@@ -51,8 +52,8 @@ export default function TripsPage() {
       
       const data = await response.json();
       setTripsData(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }

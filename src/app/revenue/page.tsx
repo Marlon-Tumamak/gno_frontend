@@ -29,7 +29,8 @@ export default function RevenuePage() {
   const fetchRevenueData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://127.0.0.1:8000/api/v1/revenue/streams/');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiUrl}/api/v1/revenue/streams/`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch revenue data');
@@ -37,8 +38,8 @@ export default function RevenuePage() {
       
       const data = await response.json();
       setRevenueData(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
