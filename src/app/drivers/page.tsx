@@ -46,7 +46,8 @@ export default function DriversPage() {
   const fetchDriversData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://127.0.0.1:8000/api/v1/trucking/drivers/summary/');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiUrl}/api/v1/revenue/streams/`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch drivers data');
