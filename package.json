@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@stackframe/stack": "^2.8.43",
+    "@types/pg": "^8.15.5",
+    "pg": "^8.16.3"
+  }
+}
