@@ -228,7 +228,7 @@ export default function ExcelUpload() {
     }
   };
 
-  const formatCellValue = (value: any, column: string): string => {
+  const formatCellValue = (value: string | number | null | undefined, column: string): string => {
     if (value === null || value === undefined || value === '') {
       return '-';
     }
