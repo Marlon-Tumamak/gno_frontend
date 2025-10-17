@@ -5,9 +5,13 @@ import * as XLSX from 'xlsx';
 
 interface UploadResponse {
   message: string;
-  created: number;
-  errors: number;
-  error_details: string[];
+  created_count: number;
+  parsing_stats?: {
+    drivers_extracted: number;
+    routes_extracted: number;
+    loads_extracted: number;
+  };
+  errors: string[];
 }
 
 interface PreviewData {
@@ -71,6 +75,26 @@ const uploadTypes = [
       'AccountNumber', 'AccountType', 'TruckType', 'PlateNumber', 'Description',
       'Debit', 'Credit', 'FinalTotal', 'Remarks', 'ReferenceNumber', 'Date',
       'Driver', 'Route', 'Quantity', 'Price', 'Front_Loa', 'Back_Load'
+    ]
+  },
+  {
+    value: 'trucking',
+    label: 'Trucking Account',
+    endpoint: 'trucking/upload/',
+    columns: [
+      'AccountNumber', 'AccountType', 'TruckType', 'PlateNumber', 'Description',
+      'Debit', 'Credit', 'FinalTotal', 'Remarks', 'ReferenceNumber', 'Date',
+      'Quantity', 'Price', 'Driver', 'Route', 'Front_Load', 'Back_Load'
+    ]
+  },
+  {
+    value: 'salary',
+    label: 'Salary Account',
+    endpoint: 'salary/upload/',
+    columns: [
+      'AccountNumber', 'AccountType', 'TruckType', 'PlateNumber', 'Description',
+      'Debit', 'Credit', 'FinalTotal', 'Remarks', 'ReferenceNumber', 'Date',
+      'Quantity', 'Price', 'Driver', 'Route', 'Front_Load', 'Back_Load'
     ]
   }
 ];
@@ -204,6 +228,48 @@ export default function ExcelUpload() {
     }
   };
 
+  const formatCellValue = (value: any, column: string): string => {
+    if (value === null || value === undefined || value === '') {
+      return '-';
+    }
+    
+    // Format currency columns
+    if (['Debit', 'Credit', 'FinalTotal', 'Final Total', 'Price'].includes(column)) {
+      const numValue = typeof value === 'string' ? parseFloat(value) : value;
+      if (!isNaN(numValue)) {
+        return new Intl.NumberFormat('en-PH', {
+          style: 'currency',
+          currency: 'PHP',
+        }).format(numValue);
+      }
+    }
+    
+    // Format date columns - show in MM/DD/YYYY format
+    if (column === 'Date') {
+      if (value instanceof Date) {
+        return value.toLocaleDateString('en-US', {
+          month: 'numeric',
+          day: 'numeric',
+          year: 'numeric'
+        });
+      }
+      if (typeof value === 'string') {
+        // Try to parse and format the date
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString('en-US', {
+            month: 'numeric',
+            day: 'numeric',
+            year: 'numeric'
+          });
+        }
+        return value; // Return as-is if can't parse
+      }
+    }
+    
+    return String(value);
+  };
+
   return (
     <div className={`mx-auto p-6 ${previewData ? 'max-w-7xl' : 'max-w-2xl'}`}>
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -324,13 +390,13 @@ export default function ExcelUpload() {
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200 font-medium">
                           {rowIndex + 1}
                         </td>
-                        {previewData.headers.map((_, colIndex) => (
+                        {previewData.headers.map((header, colIndex) => (
                           <td
                             key={colIndex}
                             className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200 last:border-r-0"
                           >
                             {row[colIndex] !== undefined && row[colIndex] !== null && row[colIndex] !== '' 
-                              ? String(row[colIndex]) 
+                              ? formatCellValue(row[colIndex], header)
                               : '-'}
                           </td>
                         ))}
@@ -350,16 +416,26 @@ export default function ExcelUpload() {
               {response.message}
             </h3>
             <div className="text-sm text-green-700">
-              <p>✅ Successfully created: {response.created} records</p>
-              {response.errors > 0 && (
-                <p className="text-red-600">❌ Errors: {response.errors}</p>
+              <p>✅ Successfully created: {response.created_count} records</p>
+              {response.errors && response.errors.length > 0 && (
+                <p className="text-red-600">❌ Errors: {response.errors.length}</p>
+              )}
+              {response.parsing_stats && (
+                <div className="mt-2 p-2 bg-blue-50 rounded">
+                  <p className="text-blue-800 font-semibold">📊 Parsing Statistics:</p>
+                  <ul className="text-blue-700 text-xs mt-1">
+                    <li>• Drivers extracted: {response.parsing_stats.drivers_extracted}</li>
+                    <li>• Routes extracted: {response.parsing_stats.routes_extracted}</li>
+                    <li>• Loads extracted: {response.parsing_stats.loads_extracted}</li>
+                  </ul>
+                </div>
               )}
             </div>
-            {response.error_details && response.error_details.length > 0 && (
+            {response.errors && response.errors.length > 0 && (
               <div className="mt-4">
                 <h4 className="font-semibold text-red-700 mb-2">Error Details:</h4>
                 <ul className="list-disc list-inside text-sm text-red-600 max-h-40 overflow-y-auto">
-                  {response.error_details.map((err, idx) => (
+                  {response.errors.map((err, idx) => (
                     <li key={idx}>{err}</li>
                   ))}
                 </ul>
@@ -408,6 +484,7 @@ export default function ExcelUpload() {
                     {column === 'Quantity' && <span className="ml-2 text-xs">- Quantity</span>}
                     {column === 'Unit Cost' && <span className="ml-2 text-xs">- Unit cost</span>}
                     {column === 'Front_Loa' && <span className="ml-2 text-xs">- Front load</span>}
+                    {column === 'Front_Load' && <span className="ml-2 text-xs">- Front load</span>}
                     {column === 'Back_Load' && <span className="ml-2 text-xs">- Back load</span>}
               </div>
             ))}

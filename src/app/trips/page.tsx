@@ -35,6 +35,7 @@ export default function TripsPage() {
   const [tripsData, setTripsData] = useState<TripsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTruck, setSelectedTruck] = useState<string>('all');
 
   useEffect(() => {
     fetchTripsData();
@@ -114,8 +115,16 @@ export default function TripsPage() {
     );
   }
 
-  // Calculate totals
-  const totals = tripsData.trips.reduce((acc, trip) => ({
+  // Get unique truck plate numbers
+  const uniqueTrucks = Array.from(new Set(tripsData.trips.map(trip => trip.plate_number))).sort();
+
+  // Filter trips based on selected truck
+  const filteredTrips = selectedTruck === 'all' 
+    ? tripsData.trips 
+    : tripsData.trips.filter(trip => trip.plate_number === selectedTruck);
+
+  // Calculate totals for filtered trips
+  const totals = filteredTrips.reduce((acc, trip) => ({
     allowance: acc.allowance + trip.allowance,
     fuel_liters: acc.fuel_liters + trip.fuel_liters,
     front_load_amount: acc.front_load_amount + trip.front_load_amount,
@@ -146,18 +155,46 @@ export default function TripsPage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Trips Summary</h1>
               <p className="text-gray-600">Consolidated view of all trips (1 day = 1 trip per truck)</p>
-              <p className="text-sm text-gray-500 mt-1">Total Trips: {tripsData.total_trips}</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Total Trips: {tripsData.total_trips}
+                {selectedTruck !== 'all' && (
+                  <span className="ml-2 text-blue-600 font-medium">
+                    (Showing {filteredTrips.length} trips for {selectedTruck})
+                  </span>
+                )}
+              </p>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex space-x-4 items-center">
+              <div className="flex flex-col">
+                <label htmlFor="truck-filter" className="text-xs font-medium text-gray-700 mb-1">
+                  Filter by Truck
+                </label>
+                <select
+                  id="truck-filter"
+                  value={selectedTruck}
+                  onChange={(e) => setSelectedTruck(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-900 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="all">All Trucks ({tripsData.total_trips} trips)</option>
+                  {uniqueTrucks.map((truck) => {
+                    const truckTrips = tripsData.trips.filter(t => t.plate_number === truck);
+                    return (
+                      <option key={truck} value={truck}>
+                        {truck} ({truckTrips.length} trips)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
               <Link
                 href="/dashboard"
-                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors self-end"
               >
                 Back to Dashboard
               </Link>
               <button
                 onClick={fetchTripsData}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors self-end"
               >
                 Refresh Data
               </button>
@@ -168,7 +205,14 @@ export default function TripsPage() {
         {/* Trips Table */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-xl font-semibold text-gray-900">All Trips</h2>
+            <h2 className="text-xl font-semibold text-gray-900">
+              {selectedTruck === 'all' ? 'All Trips' : `Trips for ${selectedTruck}`}
+            </h2>
+            {selectedTruck !== 'all' && (
+              <p className="text-sm text-gray-600 mt-1">
+                Showing {filteredTrips.length} of {tripsData.total_trips} total trips
+              </p>
+            )}
           </div>
           
           <div className="overflow-x-auto">
@@ -241,7 +285,7 @@ export default function TripsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {tripsData.trips.map((trip, index) => (
+                {filteredTrips.map((trip, index) => (
                   <tr key={index} className="hover:bg-gray-50">
                     <td className="px-3 py-2 whitespace-nowrap text-gray-500">
                       {index + 1}

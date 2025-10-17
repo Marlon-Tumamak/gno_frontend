@@ -46,7 +46,7 @@ export default function DriversPage() {
   const fetchDriversData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://gno-backend.onrender.com/api/v1/drivers/summary/');
+      const response = await fetch('http://127.0.0.1:8000/api/v1/trucking/drivers/summary/');
       
       if (!response.ok) {
         throw new Error('Failed to fetch drivers data');
