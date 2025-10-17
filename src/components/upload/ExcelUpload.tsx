@@ -228,14 +228,14 @@ export default function ExcelUpload() {
     }
   };
 
-  const formatCellValue = (value: string | number | Date | null | undefined, column: string): string => {
+  const formatCellValue = (value: any, column: string): string => {
     if (value === null || value === undefined || value === '') {
       return '-';
     }
     
     // Format currency columns
     if (['Debit', 'Credit', 'FinalTotal', 'Final Total', 'Price'].includes(column)) {
-      const numValue = typeof value === 'string' ? parseFloat(value) : (typeof value === 'number' ? value : 0);
+      const numValue = typeof value === 'string' ? parseFloat(value) : value;
       if (!isNaN(numValue)) {
         return new Intl.NumberFormat('en-PH', {
           style: 'currency',

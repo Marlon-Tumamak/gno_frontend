@@ -47,7 +47,7 @@ export default function DriversPage() {
     try {
       setLoading(true);
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-      const response = await fetch(`${apiUrl}/api/v1/revenue/streams/`);
+      const response = await fetch(`${apiUrl}/api/v1/drivers/summary/`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch drivers data');

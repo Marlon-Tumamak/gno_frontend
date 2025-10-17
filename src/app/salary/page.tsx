@@ -56,6 +56,7 @@ export default function SalaryPage() {
 
   const totalDebit = salaryAccounts.reduce((sum, account) => sum + account.debit, 0);
   const totalCredit = salaryAccounts.reduce((sum, account) => sum + account.credit, 0);
+  const netTotal = totalDebit - totalCredit;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {
