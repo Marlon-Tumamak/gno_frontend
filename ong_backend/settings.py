@@ -53,6 +53,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.middleware.gzip.GZipMiddleware',  # Enable gzip compression for large responses
 ]
 
 ROOT_URLCONF = 'ong_backend.urls'
@@ -146,6 +147,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://gno-frontend.onrender.com",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",  # Added port 3001 for your current frontend
+    "http://127.0.0.1:3001",  # Added port 3001 for your current frontend
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -155,4 +158,31 @@ CSRF_TRUSTED_ORIGINS = [
     "https://gno-frontend.onrender.com",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",  # Added port 3001 for your current frontend
+    "http://127.0.0.1:3001",  # Added port 3001 for your current frontend
 ]
+
+# Logging configuration to suppress broken pipe errors
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'ignore_broken_pipe': {
+            '()': 'django.utils.log.CallbackFilter',
+            'callback': lambda record: 'Broken pipe' not in record.getMessage()
+        }
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'filters': ['ignore_broken_pipe'],
+        },
+    },
+    'loggers': {
+        'django.server': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

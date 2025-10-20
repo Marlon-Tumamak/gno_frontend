@@ -97,3 +97,4 @@ urlpatterns = [
     # Trips URL
     path('trips/', TripsView.as_view(), name='trips'),
 ]
+

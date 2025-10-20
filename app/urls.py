@@ -29,6 +29,7 @@ from .views import (
     TruckingAccountUploadView,
     DriversSummaryView,
 )
+from .trucking_upload_view import TruckingAccountPreviewView
 from .revenue_views import RevenueStreamsView
 from .accounts_views import AccountsSummaryView
 from .accounts_detail_views import AccountsDetailView
@@ -81,6 +82,7 @@ urlpatterns = [
     path('trucking/', TruckingAccountListView.as_view(), name='trucking-list'),
     path('trucking/<int:pk>/', TruckingAccountDetailView.as_view(), name='trucking-detail'),
     path('trucking/upload/', TruckingAccountUploadView.as_view(), name='trucking-upload'),
+    path('trucking/preview/', TruckingAccountPreviewView.as_view(), name='trucking-preview'),
     
     # Drivers Summary URL
     path('drivers/summary/', DriversSummaryView.as_view(), name='drivers-summary'),
