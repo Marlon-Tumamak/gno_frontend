@@ -19,6 +19,38 @@ interface PreviewData {
   rows: (string | number | undefined)[][];
 }
 
+interface BackendPreviewData {
+  row_number: number;
+  account_number: string;
+  account_type: string;
+  truck_type: string;
+  plate_number: string | null;
+  description: string;
+  debit: number;
+  credit: number;
+  final_total: number;
+  remarks: string;
+  reference_number: string | null;
+  date: string | null;
+  quantity: number | null;
+  price: number | null;
+  driver: string | null;
+  route: string | null;
+  front_load: string | null;
+  back_load: string | null;
+}
+
+interface BackendPreviewResponse {
+  preview_data: BackendPreviewData[];
+  parsing_stats: {
+    drivers_extracted: number;
+    routes_extracted: number;
+    loads_extracted: number;
+    total_rows: number;
+  };
+  message: string;
+}
+
 const uploadTypes = [
   {
     value: 'repair-maintenance',
@@ -107,7 +139,9 @@ export default function ExcelUpload() {
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [backendPreviewData, setBackendPreviewData] = useState<BackendPreviewResponse | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Fix hydration error by ensuring component is mounted on client
   useEffect(() => {
@@ -138,6 +172,8 @@ export default function ExcelUpload() {
       setResponse(null);
       setError(null);
       setPreviewData(null);
+      setBackendPreviewData(null);
+      setSearchTerm('');
     }
   };
 
@@ -146,6 +182,8 @@ export default function ExcelUpload() {
     setResponse(null);
     setError(null);
     setPreviewData(null);
+    setBackendPreviewData(null);
+    setSearchTerm('');
   };
 
   const handlePreview = async () => {
@@ -157,31 +195,55 @@ export default function ExcelUpload() {
     setPreviewing(true);
     setError(null);
     setResponse(null);
+    setBackendPreviewData(null);
 
     try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      
-      // Convert to JSON with header row
-      const jsonData: (string | number | undefined)[][] = XLSX.utils.sheet_to_json(worksheet, { 
-        header: 1,
-        raw: false,
-        dateNF: 'MM/DD/YYYY'
-      });
+      // For trucking accounts, use backend preview endpoint to get parsed data
+      if (uploadType === 'trucking') {
+        const formData = new FormData();
+        formData.append('file', file);
 
-      if (jsonData.length === 0) {
-        setError('The Excel file is empty');
-        setPreviewing(false);
-        return;
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+        const previewUrl = `${apiUrl}/api/v1/trucking/preview/`;
+
+        const res = await fetch(previewUrl, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          setBackendPreviewData(data);
+        } else {
+          setError(data.error || 'Preview failed');
+        }
+      } else {
+        // For other upload types, use client-side preview
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert to JSON with header row
+        const jsonData: (string | number | undefined)[][] = XLSX.utils.sheet_to_json(worksheet, { 
+          header: 1,
+          raw: false,
+          dateNF: 'MM/DD/YYYY'
+        });
+
+        if (jsonData.length === 0) {
+          setError('The Excel file is empty');
+          setPreviewing(false);
+          return;
+        }
+
+        // First row is headers
+        const headers = jsonData[0] as string[];
+        const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ''));
+
+        setPreviewData({ headers, rows });
       }
-
-      // First row is headers
-      const headers = jsonData[0] as string[];
-      const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ''));
-
-      setPreviewData({ headers, rows });
     } catch (err) {
       setError('Failed to parse Excel file. Please make sure it\'s a valid Excel file.');
       console.error('Preview error:', err);
@@ -270,8 +332,20 @@ export default function ExcelUpload() {
     return String(value);
   };
 
+  // Filter backend preview data based on search term - search across ALL columns
+  const filteredBackendData = backendPreviewData?.preview_data.filter(row => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    
+    // Search across all columns in the row
+    return Object.values(row).some(value => {
+      if (value === null || value === undefined) return false;
+      return String(value).toLowerCase().includes(searchLower);
+    });
+  }) || [];
+
   return (
-    <div className={`mx-auto p-6 ${previewData ? 'max-w-7xl' : 'max-w-2xl'}`}>
+    <div className={`mx-auto p-6 ${(previewData || backendPreviewData) ? 'max-w-7xl' : 'max-w-2xl'}`}>
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-2xl font-bold mb-6 text-gray-800">
           Upload Excel File
@@ -319,7 +393,7 @@ export default function ExcelUpload() {
           )}
         </div>
 
-        {!previewData ? (
+        {!previewData && !backendPreviewData ? (
           <button
             onClick={handlePreview}
             disabled={!file || previewing}
@@ -345,12 +419,127 @@ export default function ExcelUpload() {
               {uploading ? 'Uploading...' : 'Confirm Upload'}
             </button>
             <button
-              onClick={() => setPreviewData(null)}
+              onClick={() => {
+                setPreviewData(null);
+                setBackendPreviewData(null);
+                setSearchTerm('');
+              }}
               disabled={uploading}
               className="w-full py-2 px-4 rounded-md font-semibold text-gray-700 bg-gray-200 hover:bg-gray-300 transition-colors disabled:opacity-50"
             >
               Cancel / Choose Different File
             </button>
+          </div>
+        )}
+
+        {/* Backend Preview Data Table for Trucking Accounts */}
+        {backendPreviewData && (
+          <div className="mt-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+              <h3 className="text-lg font-semibold text-blue-800 mb-2">
+                📋 Data Preview (with Parsed Fields)
+              </h3>
+              <p className="text-sm text-blue-700 mb-2">
+                Review the parsed data below before confirming the upload. Total rows: {backendPreviewData.parsing_stats.total_rows}
+              </p>
+              <p className="text-xs text-blue-600 mb-2">
+                📜 Showing all {backendPreviewData.preview_data.length} entries. Scroll down to see more data.
+              </p>
+              <div className="bg-green-50 p-3 rounded border border-green-200">
+                <p className="text-green-800 font-semibold text-sm">📊 Parsing Statistics:</p>
+                <ul className="text-green-700 text-xs mt-1">
+                  <li>• Drivers extracted: {backendPreviewData.parsing_stats.drivers_extracted}</li>
+                  <li>• Routes extracted: {backendPreviewData.parsing_stats.routes_extracted}</li>
+                  <li>• Loads extracted: {backendPreviewData.parsing_stats.loads_extracted}</li>
+                </ul>
+              </div>
+            </div>
+            
+            {/* Search Box */}
+            <div className="mb-4">
+              <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search across all columns..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+              {searchTerm && (
+                <div className="mt-2 flex items-center justify-between">
+                  <p className="text-sm text-gray-600">
+                    Showing {filteredBackendData.length} of {backendPreviewData?.preview_data.length} entries
+                  </p>
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="text-sm text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Show All
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            <div className="overflow-x-auto border border-gray-200 rounded-md">
+              <div className="max-h-[600px] overflow-y-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
+                    <tr>
+                      {backendPreviewData.preview_data.length > 0 && Object.keys(backendPreviewData.preview_data[0]).map((column, index) => (
+                        <th
+                          key={column}
+                          className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                            index < Object.keys(backendPreviewData.preview_data[0]).length - 1 ? 'border-r border-gray-200' : ''
+                          }`}
+                        >
+                          {column === 'row_number' ? '#' : column}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredBackendData.map((row, rowIndex) => (
+                      <tr key={row.row_number || rowIndex} className="hover:bg-gray-50">
+                        {Object.entries(row).map(([column, value], colIndex) => (
+                          <td
+                            key={column}
+                            className={`px-4 py-2 whitespace-nowrap text-sm border-r border-gray-200 ${
+                              colIndex === Object.keys(row).length - 1 ? 'border-r-0' : ''
+                            }`}
+                          >
+                            {column === 'row_number' ? (
+                              <span className="text-gray-500 font-medium">{value}</span>
+                            ) : column === 'driver' && value ? (
+                              <span className="text-green-700 font-semibold">{value}</span>
+                            ) : column === 'route' && value ? (
+                              <span className="text-blue-700 font-semibold">{value}</span>
+                            ) : column === 'front_load' && value ? (
+                              <span className="text-purple-700 font-semibold">{value}</span>
+                            ) : column === 'back_load' && value ? (
+                              <span className="text-orange-700 font-semibold">{value}</span>
+                            ) : column === 'remarks' && value ? (
+                              <div className="max-w-xs truncate text-gray-900" title={String(value)}>
+                                {String(value)}
+                              </div>
+                            ) : column === 'final_total' && value ? (
+                              <span className="text-gray-900">₱{Number(value).toFixed(2)}</span>
+                            ) : (
+                              <span className="text-gray-900">{value || '-'}</span>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 

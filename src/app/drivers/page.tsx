@@ -3,20 +3,43 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+interface TruckingRecord {
+  id: number;
+  account_number: string;
+  account_type: string;
+  truck_type: string;
+  plate_number: string | null;
+  description: string;
+  debit: number;
+  credit: number;
+  final_total: number;
+  remarks: string;
+  reference_number: string | null;
+  date: string;
+  quantity: number | null;
+  price: number | null;
+  driver: string | null;
+  route: string | null;
+  front_load: string | null;
+  back_load: string | null;
+}
+
 interface DriverDetail {
   reference_number: string;
   account_number: string;
   date: string;
   amount: number;
-  load_type: 'front_load' | 'back_load';
+  load_type: 'front_load' | 'back_load' | 'fuel_and_oil' | 'allowance';
   route: string;
   description: string;
+  account_type: string;
 }
 
 interface Driver {
   driver_name: string;
   front_load_amount: number;
   back_load_amount: number;
+  fuel_and_oil_amount: number;
   allowance_amount: number;
   total_loads: number;
   details: DriverDetail[];
@@ -28,6 +51,7 @@ interface DriversSummary {
   summary: {
     total_front_load: number;
     total_back_load: number;
+    total_fuel_and_oil: number;
     total_allowance: number;
     total_loads: number;
   };
@@ -47,19 +71,176 @@ export default function DriversPage() {
     try {
       setLoading(true);
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-      const response = await fetch(`${apiUrl}/api/v1/drivers/summary/`);
+      const response = await fetch(`${apiUrl}/api/v1/trucking/`);
       
       if (!response.ok) {
-        throw new Error('Failed to fetch drivers data');
+        throw new Error('Failed to fetch trucking data');
       }
       
-      const data = await response.json();
-      setDriversData(data);
+      const truckingData: TruckingRecord[] = await response.json();
+      
+      // Process trucking data to create driver summary
+      const processedData = processTruckingData(truckingData);
+      setDriversData(processedData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
+  };
+
+  const processTruckingData = (data: TruckingRecord[]): DriversSummary => {
+    // Group by driver
+    const driverMap = new Map<string, Driver>();
+
+    data.forEach((record) => {
+      // Skip records without driver or with empty driver
+      if (!record.driver || record.driver.trim() === '' || record.driver.toLowerCase() === 'nan') {
+        return;
+      }
+
+      const driverName = record.driver.trim();
+
+      // Initialize driver if not exists
+      if (!driverMap.has(driverName)) {
+        driverMap.set(driverName, {
+          driver_name: driverName,
+          front_load_amount: 0,
+          back_load_amount: 0,
+          fuel_and_oil_amount: 0,
+          allowance_amount: 0,
+          total_loads: 0,
+          details: [],
+        });
+      }
+
+      const driver = driverMap.get(driverName)!;
+      const finalTotal = parseFloat(record.final_total.toString());
+
+      // Check if this is a Hauling Income (load-related)
+      const isHaulingIncome = record.account_type.toLowerCase().includes('hauling income');
+      
+      if (isHaulingIncome) {
+        // For Hauling Income, check front_load and back_load
+        const hasFrontLoad = record.front_load && 
+          record.front_load.trim() !== '' && 
+          record.front_load.toLowerCase() !== 'nan' &&
+          record.front_load.toLowerCase() !== 'n' &&
+          record.front_load.toLowerCase() !== 'none';
+        
+        const hasBackLoad = record.back_load && 
+          record.back_load.trim() !== '' && 
+          record.back_load.toLowerCase() !== 'nan' &&
+          record.back_load.toLowerCase() !== 'none';
+
+        if (hasFrontLoad && hasBackLoad) {
+          // Both loads present - split amount
+          const halfAmount = finalTotal / 2;
+          driver.front_load_amount += halfAmount;
+          driver.back_load_amount += halfAmount;
+          driver.total_loads += 2;
+
+          // Add detail for front load
+          driver.details.push({
+            reference_number: record.reference_number || 'N/A',
+            account_number: record.account_number,
+            date: record.date,
+            amount: halfAmount,
+            load_type: 'front_load',
+            route: record.route || 'N/A',
+            description: `${record.description} (Front: ${record.front_load})`,
+            account_type: record.account_type,
+          });
+
+          // Add detail for back load
+          driver.details.push({
+            reference_number: record.reference_number || 'N/A',
+            account_number: record.account_number,
+            date: record.date,
+            amount: halfAmount,
+            load_type: 'back_load',
+            route: record.route || 'N/A',
+            description: `${record.description} (Back: ${record.back_load})`,
+            account_type: record.account_type,
+          });
+        } else if (hasFrontLoad) {
+          // Only front load
+          driver.front_load_amount += finalTotal;
+          driver.total_loads += 1;
+
+          driver.details.push({
+            reference_number: record.reference_number || 'N/A',
+            account_number: record.account_number,
+            date: record.date,
+            amount: finalTotal,
+            load_type: 'front_load',
+            route: record.route || 'N/A',
+            description: `${record.description} (Front: ${record.front_load})`,
+            account_type: record.account_type,
+          });
+        } else if (hasBackLoad) {
+          // Only back load
+          driver.back_load_amount += finalTotal;
+          driver.total_loads += 1;
+
+          driver.details.push({
+            reference_number: record.reference_number || 'N/A',
+            account_number: record.account_number,
+            date: record.date,
+            amount: finalTotal,
+            load_type: 'back_load',
+            route: record.route || 'N/A',
+            description: `${record.description} (Back: ${record.back_load})`,
+            account_type: record.account_type,
+          });
+        }
+      } else if (record.account_type.toLowerCase().includes('driver\'s allowance')) {
+        // Driver's Allowance - treat as actual allowance
+        driver.allowance_amount += finalTotal;
+
+        driver.details.push({
+          reference_number: record.reference_number || 'N/A',
+          account_number: record.account_number,
+          date: record.date,
+          amount: finalTotal,
+          load_type: 'allowance',
+          route: record.route || 'N/A',
+          description: record.description,
+          account_type: record.account_type,
+        });
+      } else {
+        // Other expenses (fuel, oil, etc.) - treat as fuel and oil
+        driver.fuel_and_oil_amount += finalTotal;
+
+        driver.details.push({
+          reference_number: record.reference_number || 'N/A',
+          account_number: record.account_number,
+          date: record.date,
+          amount: finalTotal,
+          load_type: 'fuel_and_oil',
+          route: record.route || 'N/A',
+          description: record.description,
+          account_type: record.account_type,
+        });
+      }
+    });
+
+    // Convert map to array and calculate summary
+    const drivers = Array.from(driverMap.values());
+    
+    const summary = {
+      total_front_load: drivers.reduce((sum, d) => sum + d.front_load_amount, 0),
+      total_back_load: drivers.reduce((sum, d) => sum + d.back_load_amount, 0),
+      total_fuel_and_oil: drivers.reduce((sum, d) => sum + d.fuel_and_oil_amount, 0),
+      total_allowance: drivers.reduce((sum, d) => sum + d.allowance_amount, 0),
+      total_loads: drivers.reduce((sum, d) => sum + d.total_loads, 0),
+    };
+
+    return {
+      drivers: drivers.sort((a, b) => a.driver_name.localeCompare(b.driver_name)),
+      total_drivers: drivers.length,
+      summary,
+    };
   };
 
   const toggleDriverDetails = (driverName: string) => {
@@ -153,7 +334,7 @@ export default function DriversPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="text-sm font-medium text-gray-500">Total Drivers</div>
             <div className="text-2xl font-bold text-gray-900">{driversData.total_drivers}</div>
@@ -168,6 +349,12 @@ export default function DriversPage() {
             <div className="text-sm font-medium text-gray-500">Total Back Load</div>
             <div className="text-2xl font-bold text-blue-600">
               {formatCurrency(driversData.summary.total_back_load)}
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="text-sm font-medium text-gray-500">Total Fuel & Oil</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {formatCurrency(driversData.summary.total_fuel_and_oil)}
             </div>
           </div>
           <div className="bg-white rounded-lg shadow-md p-6">
@@ -198,6 +385,9 @@ export default function DriversPage() {
                     Back Load
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fuel & Oil
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Allowance
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -213,7 +403,7 @@ export default function DriversPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {driversData.drivers.map((driver) => {
-                  const totalAmount = driver.front_load_amount + driver.back_load_amount + driver.allowance_amount;
+                  const totalAmount = driver.front_load_amount + driver.back_load_amount + driver.fuel_and_oil_amount + driver.allowance_amount;
                   return (
                     <>
                       <tr key={driver.driver_name} className="hover:bg-gray-50">
@@ -230,6 +420,11 @@ export default function DriversPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-blue-600 font-medium">
                             {formatCurrency(driver.back_load_amount)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-orange-600 font-medium">
+                            {formatCurrency(driver.fuel_and_oil_amount)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -280,7 +475,10 @@ export default function DriversPage() {
                                         Date
                                       </th>
                                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Type
+                                        Load Type
+                                      </th>
+                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        Account Type
                                       </th>
                                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                                         Amount
@@ -309,10 +507,17 @@ export default function DriversPage() {
                                           <span className={`px-2 py-1 text-xs rounded-full ${
                                             detail.load_type === 'front_load' 
                                               ? 'bg-green-100 text-green-800' 
-                                              : 'bg-blue-100 text-blue-800'
+                                              : detail.load_type === 'back_load'
+                                              ? 'bg-blue-100 text-blue-800'
+                                              : detail.load_type === 'fuel_and_oil'
+                                              ? 'bg-orange-100 text-orange-800'
+                                              : 'bg-purple-100 text-purple-800'
                                           }`}>
                                             {detail.load_type.replace('_', ' ')}
                                           </span>
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-gray-700">
+                                          {detail.account_type}
                                         </td>
                                         <td className="px-3 py-2 text-sm font-medium text-gray-900">
                                           {formatCurrency(detail.amount)}

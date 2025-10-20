@@ -3,20 +3,40 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-interface Trip {
+interface TruckingRecord {
+  id: number;
   account_number: string;
+  account_type: string;
+  truck_type: string;
+  plate_number: string | null;
+  description: string;
+  debit: number;
+  credit: number;
+  final_total: number;
+  remarks: string;
+  reference_number: string | null;
+  date: string;
+  quantity: number | null;
+  price: number | null;
+  driver: string | null;
+  route: string | null;
+  front_load: string | null;
+  back_load: string | null;
+}
+
+interface Trip {
   plate_number: string;
   date: string;
   trip_route: string;
   driver: string;
   allowance: number;
-  reference_number: string;
+  reference_numbers: string[];
   fuel_liters: number;
   fuel_price: number;
   front_load: string;
-  front_load_reference_number: string;
+  front_load_reference_numbers: string[];
   front_load_amount: number;
-  back_load_reference_number: string;
+  back_load_reference_numbers: string[];
   back_load_amount: number;
   front_and_back_load_amount: number;
   remarks: string;
@@ -24,6 +44,7 @@ interface Trip {
   repairs_maintenance_expense: number;
   taxes_permits_licenses_expense: number;
   salaries_allowance: number;
+  account_types: string[];
 }
 
 interface TripsData {
@@ -45,19 +66,169 @@ export default function TripsPage() {
     try {
       setLoading(true);
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-      const response = await fetch(`${apiUrl}/api/v1/trips/`);
+      const response = await fetch(`${apiUrl}/api/v1/trucking/`);
       
       if (!response.ok) {
-        throw new Error('Failed to fetch trips data');
+        throw new Error('Failed to fetch trucking data');
       }
       
-      const data = await response.json();
-      setTripsData(data);
+      const truckingData: TruckingRecord[] = await response.json();
+      
+      // Process trucking data to create trips
+      const processedData = processTruckingData(truckingData);
+      setTripsData(processedData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
+  };
+
+  const processTruckingData = (data: TruckingRecord[]): TripsData => {
+    // Group by plate number and date
+    const tripMap = new Map<string, Trip>();
+
+    data.forEach((record) => {
+      // Skip records without plate number or with empty plate number
+      if (!record.plate_number || record.plate_number.trim() === '' || record.plate_number.toLowerCase() === 'nan') {
+        return;
+      }
+
+      const plateNumber = record.plate_number.trim();
+      const date = record.date;
+      const tripKey = `${plateNumber}_${date}`;
+
+      // Initialize trip if not exists
+      if (!tripMap.has(tripKey)) {
+        tripMap.set(tripKey, {
+          plate_number: plateNumber,
+          date: date,
+          trip_route: '',
+          driver: '',
+          allowance: 0,
+          reference_numbers: [],
+          fuel_liters: 0,
+          fuel_price: 0,
+          front_load: '',
+          front_load_reference_numbers: [],
+          front_load_amount: 0,
+          back_load_reference_numbers: [],
+          back_load_amount: 0,
+          front_and_back_load_amount: 0,
+          remarks: '',
+          insurance_expense: 0,
+          repairs_maintenance_expense: 0,
+          taxes_permits_licenses_expense: 0,
+          salaries_allowance: 0,
+          account_types: [],
+        });
+      }
+
+      const trip = tripMap.get(tripKey)!;
+      const finalTotal = parseFloat(record.final_total.toString());
+
+      // Add reference number if not already present
+      if (record.reference_number && !trip.reference_numbers.includes(record.reference_number)) {
+        trip.reference_numbers.push(record.reference_number);
+      }
+
+      // Add account type if not already present
+      if (!trip.account_types.includes(record.account_type)) {
+        trip.account_types.push(record.account_type);
+      }
+
+      // Set driver and route from first valid record
+      if (!trip.driver && record.driver) {
+        trip.driver = record.driver;
+      }
+      if (!trip.trip_route && record.route) {
+        trip.trip_route = record.route;
+      }
+
+      // Process based on account type
+      const accountTypeLower = record.account_type.toLowerCase();
+
+      if (accountTypeLower.includes('hauling income')) {
+        // Handle Hauling Income - loads
+        const hasFrontLoad = record.front_load && 
+          record.front_load.trim() !== '' && 
+          record.front_load.toLowerCase() !== 'nan' &&
+          record.front_load.toLowerCase() !== 'n' &&
+          record.front_load.toLowerCase() !== 'none';
+        
+        const hasBackLoad = record.back_load && 
+          record.back_load.trim() !== '' && 
+          record.back_load.toLowerCase() !== 'nan' &&
+          record.back_load.toLowerCase() !== 'none';
+
+        if (hasFrontLoad && hasBackLoad) {
+          // Both loads present - split amount
+          const halfAmount = finalTotal / 2;
+          trip.front_load_amount += halfAmount;
+          trip.back_load_amount += halfAmount;
+          
+          if (record.front_load) trip.front_load = record.front_load;
+          if (record.reference_number && !trip.front_load_reference_numbers.includes(record.reference_number)) {
+            trip.front_load_reference_numbers.push(record.reference_number);
+          }
+          if (record.reference_number && !trip.back_load_reference_numbers.includes(record.reference_number)) {
+            trip.back_load_reference_numbers.push(record.reference_number);
+          }
+        } else if (hasFrontLoad) {
+          // Only front load
+          trip.front_load_amount += finalTotal;
+          if (record.front_load) trip.front_load = record.front_load;
+          if (record.reference_number && !trip.front_load_reference_numbers.includes(record.reference_number)) {
+            trip.front_load_reference_numbers.push(record.reference_number);
+          }
+        } else if (hasBackLoad) {
+          // Only back load
+          trip.back_load_amount += finalTotal;
+          if (record.reference_number && !trip.back_load_reference_numbers.includes(record.reference_number)) {
+            trip.back_load_reference_numbers.push(record.reference_number);
+          }
+        }
+      } else if (accountTypeLower.includes('fuel')) {
+        // Handle Fuel
+        trip.fuel_liters += parseFloat((record.quantity || 0).toString());
+        trip.fuel_price = parseFloat((record.price || 0).toString());
+      } else if (accountTypeLower.includes('driver\'s allowance')) {
+        // Handle Driver's Allowance
+        trip.allowance += finalTotal;
+        trip.salaries_allowance += finalTotal;
+      } else if (accountTypeLower.includes('insurance')) {
+        // Handle Insurance
+        trip.insurance_expense += finalTotal;
+      } else if (accountTypeLower.includes('repair') || accountTypeLower.includes('maintenance')) {
+        // Handle Repairs & Maintenance
+        trip.repairs_maintenance_expense += finalTotal;
+      } else if (accountTypeLower.includes('tax') || accountTypeLower.includes('permit') || accountTypeLower.includes('license')) {
+        // Handle Taxes/Permits/Licenses
+        trip.taxes_permits_licenses_expense += finalTotal;
+      }
+
+      // Add remarks from first record
+      if (!trip.remarks && record.remarks) {
+        trip.remarks = record.remarks;
+      }
+    });
+
+    // Calculate front_and_back_load_amount and convert to array
+    const trips = Array.from(tripMap.values()).map(trip => {
+      trip.front_and_back_load_amount = trip.front_load_amount + trip.back_load_amount;
+      return trip;
+    });
+
+    // Sort by date and plate number
+    trips.sort((a, b) => {
+      const dateCompare = a.date.localeCompare(b.date);
+      return dateCompare !== 0 ? dateCompare : a.plate_number.localeCompare(b.plate_number);
+    });
+
+    return {
+      trips,
+      total_trips: trips.length,
+    };
   };
 
   const formatCurrency = (amount: number) => {
@@ -154,7 +325,7 @@ export default function TripsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Trips Summary</h1>
-              <p className="text-gray-600">Consolidated view of all trips (1 day = 1 trip per truck)</p>
+              <p className="text-gray-600">Consolidated view of all trips from trucking data (same date entries combined per truck)</p>
               <p className="text-sm text-gray-500 mt-1">
                 Total Trips: {tripsData.total_trips}
                 {selectedTruck !== 'all' && (
@@ -223,7 +394,7 @@ export default function TripsPage() {
                     #
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Account #
+                    Account Types
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Plate #
@@ -291,7 +462,7 @@ export default function TripsPage() {
                       {index + 1}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.account_number || '-'}
+                      {trip.account_types.length > 0 ? trip.account_types.join(', ') : '-'}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-gray-900 font-medium">
                       {trip.plate_number}
@@ -309,7 +480,7 @@ export default function TripsPage() {
                       {trip.allowance > 0 ? formatCurrency(trip.allowance) : '-'}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.reference_number || '-'}
+                      {trip.reference_numbers.length > 0 ? trip.reference_numbers.join(', ') : '-'}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-gray-900">
                       {trip.fuel_liters > 0 ? trip.fuel_liters.toFixed(2) : '-'}
@@ -321,13 +492,13 @@ export default function TripsPage() {
                       {trip.front_load || '-'}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.front_load_reference_number || '-'}
+                      {trip.front_load_reference_numbers.length > 0 ? trip.front_load_reference_numbers.join(', ') : '-'}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-blue-600 font-medium">
                       {trip.front_load_amount > 0 ? formatCurrency(trip.front_load_amount) : '-'}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.back_load_reference_number || '-'}
+                      {trip.back_load_reference_numbers.length > 0 ? trip.back_load_reference_numbers.join(', ') : '-'}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-green-600 font-medium">
                       {trip.back_load_amount > 0 ? formatCurrency(trip.back_load_amount) : '-'}
