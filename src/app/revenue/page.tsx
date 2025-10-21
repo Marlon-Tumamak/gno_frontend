@@ -260,9 +260,17 @@ export default function RevenuePage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-700">Total OPEX</span>
-                  <span className="font-semibold text-red-600">
-                    {formatCurrency(revenueData.expense_streams.total_opex)}
-                  </span>
+                  <div className="flex items-center space-x-3">
+                    <span className="font-semibold text-red-600">
+                      {formatCurrency(revenueData.expense_streams.total_opex)}
+                    </span>
+                    <Link
+                      href="/revenue/opex"
+                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      See Details
+                    </Link>
+                  </div>
                 </div>
               </div>
               

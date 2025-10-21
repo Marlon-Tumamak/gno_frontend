@@ -112,13 +112,6 @@ export default function Dashboard() {
                 </div>
               </Link>
               
-              <Link href="/trucking" className="block">
-                <div className="bg-yellow-50 p-6 rounded-lg hover:bg-yellow-100 transition-colors cursor-pointer">
-                  <h3 className="text-lg font-semibold text-yellow-900 mb-2">Trucking Accounts</h3>
-                  <p className="text-yellow-700">View trucking account data with drivers and routes</p>
-                </div>
-              </Link>
-              
               <Link href="/salary" className="block">
                 <div className="bg-purple-50 p-6 rounded-lg hover:bg-purple-100 transition-colors cursor-pointer">
                   <h3 className="text-lg font-semibold text-purple-900 mb-2">Salary Accounts</h3>
