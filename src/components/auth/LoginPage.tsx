@@ -19,7 +19,13 @@ export default function LoginPage() {
     }
   }, [router]);
 
- 
+  // Logout handler for future use
+  // const handleLogout = () => {
+  //   localStorage.removeItem('isLoggedIn');
+  //   localStorage.removeItem('userEmail');
+  //   setEmail('yatangrao215@gmail.com');
+  //   setPassword('');
+  // };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
