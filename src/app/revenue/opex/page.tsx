@@ -2,10 +2,16 @@
 
 import { useState, useEffect } from 'react';
 
+interface AccountDetail {
+  account_number: string;
+  amount: number;
+}
+
 interface OPEXBreakdown {
   account_type: string;
   amount: number;
   percentage: number;
+  account_details: AccountDetail[];
 }
 
 interface OPEXData {
@@ -22,6 +28,7 @@ export default function OPEXPage() {
   const [opexData, setOpexData] = useState<OPEXData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchOPEXData();
@@ -65,6 +72,16 @@ export default function OPEXPage() {
       'bg-orange-500'
     ];
     return colors[index % colors.length];
+  };
+
+  const toggleExpanded = (accountType: string) => {
+    const newExpanded = new Set(expandedItems);
+    if (newExpanded.has(accountType)) {
+      newExpanded.delete(accountType);
+    } else {
+      newExpanded.add(accountType);
+    }
+    setExpandedItems(newExpanded);
   };
 
   if (loading) {
@@ -181,21 +198,50 @@ export default function OPEXPage() {
             ) : (
               <div className="space-y-4">
                 {opexData.opex_breakdown.map((item, index) => (
-                  <div key={item.account_type} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-4 h-4 rounded-full ${getCategoryColor(index)}`}></div>
-                      <div>
-                        <h3 className="font-medium text-gray-900">{item.account_type}</h3>
-                        <p className="text-sm text-gray-500">
-                          {item.percentage.toFixed(2)}% of total OPEX
-                        </p>
+                  <div key={item.account_type} className="bg-gray-50 rounded-lg overflow-hidden">
+                    <div className="flex items-center justify-between p-4">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-4 h-4 rounded-full ${getCategoryColor(index)}`}></div>
+                        <div>
+                          <h3 className="font-medium text-gray-900">{item.account_type}</h3>
+                          <p className="text-sm text-gray-500">
+                            {item.percentage.toFixed(2)}% of total OPEX
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div className="text-right">
+                          <p className="text-lg font-semibold text-gray-900">
+                            {formatCurrency(item.amount)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => toggleExpanded(item.account_type)}
+                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                          {expandedItems.has(item.account_type) ? 'Hide Details' : 'See Details'}
+                        </button>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-lg font-semibold text-gray-900">
-                        {formatCurrency(item.amount)}
-                      </p>
-                    </div>
+                    
+                    {/* Account Details Section */}
+                    {expandedItems.has(item.account_type) && (
+                      <div className="border-t border-gray-200 bg-white">
+                        <div className="p-4">
+                          <h4 className="font-medium text-gray-900 mb-3">Account Number Breakdown</h4>
+                          <div className="space-y-2">
+                            {item.account_details.map((account, idx) => (
+                              <div key={idx} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
+                                <span className="text-sm text-gray-700">{account.account_number}</span>
+                                <span className="text-sm font-medium text-gray-900">
+                                  {formatCurrency(account.amount)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
