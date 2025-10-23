@@ -105,9 +105,9 @@ export default function RevenuePage() {
 
   const totalRevenue = revenueData.revenue_streams.front_load_amount + revenueData.revenue_streams.back_load_amount;
   const totalExpenses = revenueData.expense_streams.allowance + 
-                       revenueData.expense_streams.add_allowance + 
+                       // revenueData.expense_streams.add_allowance + 
                        revenueData.expense_streams.fuel_amount + 
-                       revenueData.expense_streams.add_fuel_amount + 
+                       // revenueData.expense_streams.add_fuel_amount + 
                        revenueData.expense_streams.total_opex;
 
   return (
@@ -240,24 +240,24 @@ export default function RevenuePage() {
                     {formatCurrency(revenueData.expense_streams.allowance)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                {/* <div className="flex justify-between items-center">
                   <span className="text-gray-700">Add Allowance</span>
                   <span className="font-semibold text-red-600">
                     {formatCurrency(revenueData.expense_streams.add_allowance)}
                   </span>
-                </div>
+                </div> */}
                 <div className="flex justify-between items-center">
                   <span className="text-gray-700">Fuel Amount</span>
                   <span className="font-semibold text-red-600">
                     {formatCurrency(revenueData.expense_streams.fuel_amount)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                {/* <div className="flex justify-between items-center">
                   <span className="text-gray-700">Add Fuel Amount</span>
                   <span className="font-semibold text-red-600">
                     {formatCurrency(revenueData.expense_streams.add_fuel_amount)}
                   </span>
-                </div>
+                </div> */}
                 <div className="flex justify-between items-center">
                   <span className="text-gray-700">Total OPEX</span>
                   <div className="flex items-center space-x-3">
@@ -303,8 +303,8 @@ export default function RevenuePage() {
                         strokeDashoffset={`-${(revenueData.expense_streams.fuel_amount / totalExpenses) * 251}`}
                         className="animate-pulse"
                       />
-                      {/* Add Allowance */}
-                      <circle
+                      {/* Add Allowance - Commented out */}
+                      {/* <circle
                         cx="50"
                         cy="50"
                         r="40"
@@ -314,9 +314,9 @@ export default function RevenuePage() {
                         strokeDasharray={`${(revenueData.expense_streams.add_allowance / totalExpenses) * 251} 251`}
                         strokeDashoffset={`-${((revenueData.expense_streams.fuel_amount + revenueData.expense_streams.allowance) / totalExpenses) * 251}`}
                         className="animate-pulse"
-                      />
-                      {/* Add Fuel Amount */}
-                      <circle
+                      /> */}
+                      {/* Add Fuel Amount - Commented out */}
+                      {/* <circle
                         cx="50"
                         cy="50"
                         r="40"
@@ -326,7 +326,7 @@ export default function RevenuePage() {
                         strokeDasharray={`${(revenueData.expense_streams.add_fuel_amount / totalExpenses) * 251} 251`}
                         strokeDashoffset={`-${((revenueData.expense_streams.fuel_amount + revenueData.expense_streams.allowance + revenueData.expense_streams.add_allowance) / totalExpenses) * 251}`}
                         className="animate-pulse"
-                      />
+                      /> */}
                       {/* Total OPEX */}
                       <circle
                         cx="50"
@@ -336,7 +336,7 @@ export default function RevenuePage() {
                         stroke="#ea580c"
                         strokeWidth="20"
                         strokeDasharray={`${(revenueData.expense_streams.total_opex / totalExpenses) * 251} 251`}
-                        strokeDashoffset={`-${((revenueData.expense_streams.fuel_amount + revenueData.expense_streams.allowance + revenueData.expense_streams.add_allowance + revenueData.expense_streams.add_fuel_amount) / totalExpenses) * 251}`}
+                        strokeDashoffset={`-${((revenueData.expense_streams.fuel_amount + revenueData.expense_streams.allowance) / totalExpenses) * 251}`}
                         className="animate-pulse"
                       />
                     </svg>
@@ -347,21 +347,189 @@ export default function RevenuePage() {
                     <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
                     <span className="text-gray-700">Allowance</span>
                   </div>
-                  <div className="flex items-center">
+                  {/* <div className="flex items-center">
                     <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
                     <span className="text-gray-700">Add Allowance</span>
-                  </div>
+                  </div> */}
                   <div className="flex items-center">
                     <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
                     <span className="text-gray-700">Fuel Amount</span>
                   </div>
-                  <div className="flex items-center">
+                  {/* <div className="flex items-center">
                     <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
                     <span className="text-gray-700">Add Fuel</span>
-                  </div>
+                  </div> */}
                   <div className="flex items-center">
                     <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
                     <span className="text-gray-700">Total OPEX</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Profit and Loss Section */}
+        <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-900">Profit and Loss Analysis</h2>
+          </div>
+          
+          <div className="p-6">
+            {/* P&L Boxes */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Box 1: Total of All Entries */}
+              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Total of All Entries</h3>
+                
+                {/* Income Section */}
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Income</h4>
+                  <div className="space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Frontload Amount</span>
+                      <span className="text-sm font-medium text-green-600">
+                        {formatCurrency(revenueData.revenue_streams.front_load_amount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Backload Amount</span>
+                      <span className="text-sm font-medium text-green-600">
+                        {formatCurrency(revenueData.revenue_streams.back_load_amount)}
+                      </span>
+                    </div>
+                    <div className="border-t border-gray-300 pt-1">
+                      <div className="flex justify-between">
+                        <span className="text-sm font-bold text-gray-900">Total Income</span>
+                        <span className="text-sm font-bold text-green-600">
+                          {formatCurrency(revenueData.revenue_streams.front_load_amount + revenueData.revenue_streams.back_load_amount)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cost of Service Section */}
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Cost of Service</h4>
+                  <div className="space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Allowance</span>
+                      <span className="text-sm font-medium text-red-600">
+                        {formatCurrency(revenueData.expense_streams.allowance)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Fuel Amount</span>
+                      <span className="text-sm font-medium text-red-600">
+                        {formatCurrency(revenueData.expense_streams.fuel_amount)}
+                      </span>
+                    </div>
+                    <div className="border-t border-gray-300 pt-1">
+                      <div className="flex justify-between">
+                        <span className="text-sm font-bold text-gray-900">Total Cost of Service</span>
+                        <span className="text-sm font-bold text-red-600">
+                          {formatCurrency(revenueData.expense_streams.allowance + revenueData.expense_streams.fuel_amount)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gross Profit Section */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Gross Profit</h4>
+                  <div className="border-t border-gray-300 pt-1">
+                    <div className="flex justify-between">
+                      <span className="text-sm font-bold text-gray-900">Gross Profit</span>
+                      <span className="text-sm font-bold text-blue-600">
+                        {formatCurrency((revenueData.revenue_streams.front_load_amount + revenueData.revenue_streams.back_load_amount) - (revenueData.expense_streams.allowance + revenueData.expense_streams.fuel_amount))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Box 2: Filtered by Truck */}
+              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Filtered by Truck</h3>
+                
+                {/* Truck Filter */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Truck</label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="all">All Trucks</option>
+                    <option value="NGS4340">NGS4340</option>
+                    <option value="NGS4341">NGS4341</option>
+                    <option value="NGS4342">NGS4342</option>
+                    {/* Add more truck options as needed */}
+                  </select>
+                </div>
+
+                {/* Income Section */}
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Income</h4>
+                  <div className="space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Frontload Amount</span>
+                      <span className="text-sm font-medium text-green-600">
+                        {formatCurrency(revenueData.revenue_streams.front_load_amount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Backload Amount</span>
+                      <span className="text-sm font-medium text-green-600">
+                        {formatCurrency(revenueData.revenue_streams.back_load_amount)}
+                      </span>
+                    </div>
+                    <div className="border-t border-gray-300 pt-1">
+                      <div className="flex justify-between">
+                        <span className="text-sm font-bold text-gray-900">Total Income</span>
+                        <span className="text-sm font-bold text-green-600">
+                          {formatCurrency(revenueData.revenue_streams.front_load_amount + revenueData.revenue_streams.back_load_amount)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cost of Service Section */}
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Cost of Service</h4>
+                  <div className="space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Allowance</span>
+                      <span className="text-sm font-medium text-red-600">
+                        {formatCurrency(revenueData.expense_streams.allowance)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Fuel Amount</span>
+                      <span className="text-sm font-medium text-red-600">
+                        {formatCurrency(revenueData.expense_streams.fuel_amount)}
+                      </span>
+                    </div>
+                    <div className="border-t border-gray-300 pt-1">
+                      <div className="flex justify-between">
+                        <span className="text-sm font-bold text-gray-900">Total Cost of Service</span>
+                        <span className="text-sm font-bold text-red-600">
+                          {formatCurrency(revenueData.expense_streams.allowance + revenueData.expense_streams.fuel_amount)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gross Profit Section */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Gross Profit</h4>
+                  <div className="border-t border-gray-300 pt-1">
+                    <div className="flex justify-between">
+                      <span className="text-sm font-bold text-gray-900">Gross Profit</span>
+                      <span className="text-sm font-bold text-blue-600">
+                        {formatCurrency((revenueData.revenue_streams.front_load_amount + revenueData.revenue_streams.back_load_amount) - (revenueData.expense_streams.allowance + revenueData.expense_streams.fuel_amount))}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

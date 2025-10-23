@@ -40,6 +40,7 @@ interface Trip {
   back_load_reference_numbers: string[];
   back_load_amount: number;
   front_and_back_load_amount: number;
+  income: number;
   remarks: string;
   insurance_expense: number;
   repairs_maintenance_expense: number;
@@ -147,6 +148,7 @@ export default function TripsPage() {
           back_load_reference_numbers: [],
           back_load_amount: 0,
           front_and_back_load_amount: 0,
+          income: 0,
           remarks: '',
           insurance_expense: 0,
           repairs_maintenance_expense: 0,
@@ -181,6 +183,9 @@ export default function TripsPage() {
       const accountTypeLower = record.account_type.toLowerCase();
 
       if (accountTypeLower.includes('hauling income')) {
+        // Add hauling income to trip income
+        trip.income += finalTotal;
+        
         // Handle Hauling Income - loads
         const hasFrontLoad = record.front_load && 
           record.front_load.trim() !== '' && 
@@ -193,7 +198,15 @@ export default function TripsPage() {
           record.back_load.toLowerCase() !== 'nan' &&
           record.back_load.toLowerCase() !== 'none';
 
-        if (hasFrontLoad && hasBackLoad) {
+        // Special case: If front_load is "Strike", all amount goes to back_load
+        if (hasFrontLoad && record.front_load && record.front_load.toLowerCase() === 'strike') {
+          // Strike case - all amount goes to back load, front load amount stays 0
+          trip.back_load_amount += finalTotal;
+          if (record.front_load) trip.front_load = record.front_load;
+          if (record.reference_number && !trip.back_load_reference_numbers.includes(record.reference_number)) {
+            trip.back_load_reference_numbers.push(record.reference_number);
+          }
+        } else if (hasFrontLoad && hasBackLoad) {
           // Both loads present - split amount
           const halfAmount = finalTotal / 2;
           trip.front_load_amount += halfAmount;
@@ -346,6 +359,7 @@ export default function TripsPage() {
     front_load_amount: acc.front_load_amount + trip.front_load_amount,
     back_load_amount: acc.back_load_amount + trip.back_load_amount,
     front_and_back_load_amount: acc.front_and_back_load_amount + trip.front_and_back_load_amount,
+    income: acc.income + trip.income,
     insurance_expense: acc.insurance_expense + trip.insurance_expense,
     repairs_maintenance_expense: acc.repairs_maintenance_expense + trip.repairs_maintenance_expense,
     taxes_permits_licenses_expense: acc.taxes_permits_licenses_expense + trip.taxes_permits_licenses_expense,
@@ -357,6 +371,7 @@ export default function TripsPage() {
     front_load_amount: 0,
     back_load_amount: 0,
     front_and_back_load_amount: 0,
+    income: 0,
     insurance_expense: 0,
     repairs_maintenance_expense: 0,
     taxes_permits_licenses_expense: 0,
@@ -521,6 +536,9 @@ export default function TripsPage() {
                     Front & Back Amt
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Income
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Remarks
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -591,6 +609,9 @@ export default function TripsPage() {
                     <td className="px-3 py-2 whitespace-nowrap text-purple-600 font-bold">
                       {trip.front_and_back_load_amount > 0 ? formatCurrency(trip.front_and_back_load_amount) : '-'}
                     </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-green-600 font-bold">
+                      {trip.income > 0 ? formatCurrency(trip.income) : '-'}
+                    </td>
                     <td className="px-3 py-2 text-gray-900 max-w-xs truncate">
                       {trip.remarks || '-'}
                     </td>
@@ -635,6 +656,9 @@ export default function TripsPage() {
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap text-purple-600">
                     {formatCurrency(totals.front_and_back_load_amount)}
+                  </td>
+                  <td className="px-3 py-3 whitespace-nowrap text-green-600">
+                    {formatCurrency(totals.income)}
                   </td>
                   <td className="px-3 py-3"></td>
                   <td className="px-3 py-3 whitespace-nowrap text-red-600">

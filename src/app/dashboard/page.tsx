@@ -112,12 +112,12 @@ export default function Dashboard() {
                 </div>
               </Link>
               
-              <Link href="/salary" className="block">
+              {/* <Link href="/salary" className="block">
                 <div className="bg-purple-50 p-6 rounded-lg hover:bg-purple-100 transition-colors cursor-pointer">
                   <h3 className="text-lg font-semibold text-purple-900 mb-2">Salary Accounts</h3>
                   <p className="text-purple-700">View salary account data with drivers and routes</p>
                 </div>
-              </Link>
+              </Link> */}
             </div>
           </div>
         </div>
