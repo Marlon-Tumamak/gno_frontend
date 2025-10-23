@@ -41,6 +41,8 @@ export default function AccountsDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<string>('repair_maintenance');
+  const [selectedPlateNumber, setSelectedPlateNumber] = useState<string>('all');
+  const [showAllAccounts, setShowAllAccounts] = useState<boolean>(false);
 
   useEffect(() => {
     fetchAccountsData();
@@ -82,6 +84,26 @@ export default function AccountsDetailPage() {
       income: 'bg-emerald-50 border-emerald-200 text-emerald-800'
     };
     return colorMap[accountType] || 'bg-gray-50 border-gray-200 text-gray-800';
+  };
+
+  // Get unique plate numbers from all accounts
+  const getUniquePlateNumbers = () => {
+    if (!accountsData) return [];
+    const plateNumbers = new Set<string>();
+    Object.values(accountsData.accounts).forEach(account => {
+      account.entries.forEach(entry => {
+        if (entry.plate_number) {
+          plateNumbers.add(entry.plate_number);
+        }
+      });
+    });
+    return Array.from(plateNumbers).sort();
+  };
+
+  // Filter entries based on selected plate number
+  const getFilteredEntries = (entries: AccountEntry[]) => {
+    if (selectedPlateNumber === 'all') return entries;
+    return entries.filter(entry => entry.plate_number === selectedPlateNumber);
   };
 
   if (loading) {
@@ -133,9 +155,10 @@ export default function AccountsDetailPage() {
   }
 
   const currentAccount = accountsData.accounts[selectedAccount];
-  const totalDebit = currentAccount?.entries.reduce((sum, entry) => sum + entry.debit, 0) || 0;
-  const totalCredit = currentAccount?.entries.reduce((sum, entry) => sum + entry.credit, 0) || 0;
-  const totalFinal = currentAccount?.entries.reduce((sum, entry) => sum + entry.final_total, 0) || 0;
+  const filteredEntries = currentAccount ? getFilteredEntries(currentAccount.entries) : [];
+  const totalDebit = filteredEntries.reduce((sum, entry) => sum + entry.debit, 0);
+  const totalCredit = filteredEntries.reduce((sum, entry) => sum + entry.credit, 0);
+  const totalFinal = filteredEntries.reduce((sum, entry) => sum + entry.final_total, 0);
 
   return (
     <div className="min-h-screen bg-gray-100 py-8">
@@ -170,33 +193,72 @@ export default function AccountsDetailPage() {
           </div>
         </div>
 
-        {/* Account Type Selector */}
+        {/* Filter Controls */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Account Type</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {Object.entries(accountsData.accounts).map(([key, account]) => (
-              <button
-                key={key}
-                onClick={() => setSelectedAccount(key)}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  selectedAccount === key
-                    ? getAccountColor(key)
-                    : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                }`}
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Filter Options</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Plate Number Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Plate Number</label>
+              <select
+                value={selectedPlateNumber}
+                onChange={(e) => setSelectedPlateNumber(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <div className="text-sm font-medium">{account.name}</div>
-                <div className="text-xs mt-1">{account.entries.length} entries</div>
-              </button>
-            ))}
+                <option value="all">All Plate Numbers</option>
+                {getUniquePlateNumbers().map(plateNumber => (
+                  <option key={plateNumber} value={plateNumber}>{plateNumber}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* All Accounts Toggle */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">View Options</label>
+              <div className="flex items-center space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={showAllAccounts}
+                    onChange={(e) => setShowAllAccounts(e.target.checked)}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-700">Show All Accounts Combined</span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
 
+        {/* Account Type Selector */}
+        {!showAllAccounts && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Account Type</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {Object.entries(accountsData.accounts).map(([key, account]) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedAccount(key)}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    selectedAccount === key
+                      ? getAccountColor(key)
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="text-sm font-medium">{account.name}</div>
+                  <div className="text-xs mt-1">{account.entries.length} entries</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Current Account Totals */}
-        {currentAccount && (
+        {!showAllAccounts && currentAccount && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="text-sm font-medium text-gray-500">Total Entries</div>
-              <div className="text-2xl font-bold text-gray-900">{currentAccount.entries.length}</div>
+              <div className="text-2xl font-bold text-gray-900">{filteredEntries.length}</div>
             </div>
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="text-sm font-medium text-gray-500">Total Debit</div>
@@ -219,12 +281,57 @@ export default function AccountsDetailPage() {
           </div>
         )}
 
+        {/* All Accounts Combined Totals */}
+        {showAllAccounts && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="text-sm font-medium text-gray-500">Total Entries</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {Object.values(accountsData.accounts).reduce((sum, account) => 
+                  sum + getFilteredEntries(account.entries).length, 0
+                )}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="text-sm font-medium text-gray-500">Total Debit</div>
+              <div className="text-2xl font-bold text-red-600">
+                {formatCurrency(
+                  Object.values(accountsData.accounts).reduce((sum, account) => 
+                    sum + getFilteredEntries(account.entries).reduce((acc, entry) => acc + entry.debit, 0), 0
+                  )
+                )}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="text-sm font-medium text-gray-500">Total Credit</div>
+              <div className="text-2xl font-bold text-green-600">
+                {formatCurrency(
+                  Object.values(accountsData.accounts).reduce((sum, account) => 
+                    sum + getFilteredEntries(account.entries).reduce((acc, entry) => acc + entry.credit, 0), 0
+                  )
+                )}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="text-sm font-medium text-gray-500">Total Final</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {formatCurrency(
+                  Object.values(accountsData.accounts).reduce((sum, account) => 
+                    sum + getFilteredEntries(account.entries).reduce((acc, entry) => acc + entry.final_total, 0), 0
+                  )
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Entries Table */}
-        {currentAccount && (
+        {!showAllAccounts && currentAccount && (
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-900">
-                {currentAccount.name} - All Entries ({currentAccount.entries.length})
+                {currentAccount.name} - Filtered Entries ({filteredEntries.length})
+                {selectedPlateNumber !== 'all' && ` for ${selectedPlateNumber}`}
               </h2>
             </div>
             
@@ -294,7 +401,7 @@ export default function AccountsDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {currentAccount.entries.map((entry, index) => (
+                  {filteredEntries.map((entry, index) => (
                     <tr key={entry.id} className="hover:bg-gray-50">
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
                         {index + 1}
@@ -357,6 +464,109 @@ export default function AccountsDetailPage() {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* All Accounts Combined Table */}
+        {showAllAccounts && (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">
+                All Accounts Combined - Filtered Entries
+                {selectedPlateNumber !== 'all' && ` for ${selectedPlateNumber}`}
+              </h2>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      #
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Account Type
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Account #
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Truck Type
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Plate #
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Description
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Debit
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Credit
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Final Total
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ref #
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Remarks
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {Object.entries(accountsData.accounts).flatMap(([accountKey, account]) => 
+                    getFilteredEntries(account.entries).map((entry, index) => (
+                      <tr key={`${accountKey}-${entry.id}`} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                          {index + 1}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getAccountColor(accountKey).replace('bg-', 'bg-').replace('text-', 'text-')}`}>
+                            {account.name}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {entry.account_number}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {entry.truck_type}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {entry.plate_number}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {entry.date}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 max-w-xs truncate">
+                          {entry.description}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-red-600 font-medium">
+                          {formatCurrency(entry.debit)}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-green-600 font-medium">
+                          {formatCurrency(entry.credit)}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">
+                          {formatCurrency(entry.final_total)}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {entry.reference_number}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 max-w-xs truncate">
+                          {entry.remarks}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
