@@ -26,6 +26,7 @@ interface TruckingRecord {
 
 interface Trip {
   plate_number: string;
+  truck_type: string;
   date: string;
   trip_route: string;
   driver: string;
@@ -57,10 +58,25 @@ export default function TripsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTruck, setSelectedTruck] = useState<string>('all');
+  const [selectedTruckType, setSelectedTruckType] = useState<string>('all');
 
   useEffect(() => {
     fetchTripsData();
   }, []);
+
+  // Reset truck filter when truck type changes
+  useEffect(() => {
+    if (selectedTruckType !== 'all') {
+      // Check if current selected truck is still valid for the new truck type
+      const validTrucks = tripsData?.trips
+        .filter(trip => trip.truck_type === selectedTruckType)
+        .map(trip => trip.plate_number) || [];
+      
+      if (selectedTruck !== 'all' && !validTrucks.includes(selectedTruck)) {
+        setSelectedTruck('all');
+      }
+    }
+  }, [selectedTruckType, selectedTruck, tripsData]);
 
   const fetchTripsData = async () => {
     try {
@@ -84,6 +100,16 @@ export default function TripsPage() {
     }
   };
 
+  const standardizePlateNumber = (plateNumber: string): string => {
+    if (!plateNumber) return '';
+    
+    // Remove all spaces, hyphens, and convert to uppercase
+    return plateNumber
+      .replace(/[\s\-]/g, '')  // Remove spaces and hyphens
+      .toUpperCase()           // Convert to uppercase
+      .trim();                 // Remove any remaining whitespace
+  };
+
   const processTruckingData = (data: TruckingRecord[]): TripsData => {
     // Group by plate number and date
     const tripMap = new Map<string, Trip>();
@@ -94,7 +120,12 @@ export default function TripsPage() {
         return;
       }
 
-      const plateNumber = record.plate_number.trim();
+      // Skip records with "Beginning Balance" description
+      if (record.description && record.description.toLowerCase().includes('beginning balance')) {
+        return;
+      }
+
+      const plateNumber = standardizePlateNumber(record.plate_number);
       const date = record.date;
       const tripKey = `${plateNumber}_${date}`;
 
@@ -102,6 +133,7 @@ export default function TripsPage() {
       if (!tripMap.has(tripKey)) {
         tripMap.set(tripKey, {
           plate_number: plateNumber,
+          truck_type: record.truck_type || '',
           date: date,
           trip_route: '',
           driver: '',
@@ -133,9 +165,9 @@ export default function TripsPage() {
       }
 
       // Add account type if not already present
-      if (!trip.account_types.includes(record.account_type)) {
-        trip.account_types.push(record.account_type);
-      }
+      // if (!trip.account_types.includes(record.account_type)) {
+      //   trip.account_types.push(record.account_type);
+      // }
 
       // Set driver and route from first valid record
       if (!trip.driver && record.driver) {
@@ -188,11 +220,13 @@ export default function TripsPage() {
             trip.back_load_reference_numbers.push(record.reference_number);
           }
         }
-      } else if (accountTypeLower.includes('fuel')) {
+      } 
+      else if (accountTypeLower.includes('fuel')) {
         // Handle Fuel
         trip.fuel_liters += parseFloat((record.quantity || 0).toString());
         trip.fuel_price = parseFloat((record.price || 0).toString());
-      } else if (accountTypeLower.includes('driver\'s allowance')) {
+      } 
+      else if (accountTypeLower.includes('driver\'s allowance')) {
         // Handle Driver's Allowance
         trip.allowance += finalTotal;
         trip.salaries_allowance += finalTotal;
@@ -286,18 +320,29 @@ export default function TripsPage() {
     );
   }
 
-  // Get unique truck plate numbers
-  const uniqueTrucks = Array.from(new Set(tripsData.trips.map(trip => trip.plate_number))).sort();
+  // Get unique truck types
+  const uniqueTruckTypes = Array.from(new Set(tripsData.trips.map(trip => trip.truck_type))).sort();
+  
+  // Get unique truck plate numbers based on selected truck type
+  const uniqueTrucks = selectedTruckType === 'all' 
+    ? Array.from(new Set(tripsData.trips.map(trip => trip.plate_number))).sort()
+    : Array.from(new Set(tripsData.trips
+        .filter(trip => trip.truck_type === selectedTruckType)
+        .map(trip => trip.plate_number)
+      )).sort();
 
-  // Filter trips based on selected truck
-  const filteredTrips = selectedTruck === 'all' 
-    ? tripsData.trips 
-    : tripsData.trips.filter(trip => trip.plate_number === selectedTruck);
+  // Filter trips based on selected truck and truck type
+  const filteredTrips = tripsData.trips.filter(trip => {
+    const truckMatch = selectedTruck === 'all' || trip.plate_number === selectedTruck;
+    const truckTypeMatch = selectedTruckType === 'all' || trip.truck_type === selectedTruckType;
+    return truckMatch && truckTypeMatch;
+  });
 
   // Calculate totals for filtered trips
   const totals = filteredTrips.reduce((acc, trip) => ({
     allowance: acc.allowance + trip.allowance,
     fuel_liters: acc.fuel_liters + trip.fuel_liters,
+    fuel_total: acc.fuel_total + (trip.fuel_liters * trip.fuel_price),
     front_load_amount: acc.front_load_amount + trip.front_load_amount,
     back_load_amount: acc.back_load_amount + trip.back_load_amount,
     front_and_back_load_amount: acc.front_and_back_load_amount + trip.front_and_back_load_amount,
@@ -308,6 +353,7 @@ export default function TripsPage() {
   }), {
     allowance: 0,
     fuel_liters: 0,
+    fuel_total: 0,
     front_load_amount: 0,
     back_load_amount: 0,
     front_and_back_load_amount: 0,
@@ -328,9 +374,11 @@ export default function TripsPage() {
               <p className="text-gray-600">Consolidated view of all trips from trucking data (same date entries combined per truck)</p>
               <p className="text-sm text-gray-500 mt-1">
                 Total Trips: {tripsData.total_trips}
-                {selectedTruck !== 'all' && (
+                {(selectedTruck !== 'all' || selectedTruckType !== 'all') && (
                   <span className="ml-2 text-blue-600 font-medium">
-                    (Showing {filteredTrips.length} trips for {selectedTruck})
+                    (Showing {filteredTrips.length} trips
+                    {selectedTruck !== 'all' && ` for ${selectedTruck}`}
+                    {selectedTruckType !== 'all' && ` - ${selectedTruckType} type`})
                   </span>
                 )}
               </p>
@@ -346,12 +394,41 @@ export default function TripsPage() {
                   onChange={(e) => setSelectedTruck(e.target.value)}
                   className="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-900 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 >
-                  <option value="all">All Trucks ({tripsData.total_trips} trips)</option>
+                  <option value="all">
+                    {selectedTruckType === 'all' 
+                      ? `All Trucks (${tripsData.total_trips} trips)` 
+                      : `All ${selectedTruckType} Trucks (${uniqueTrucks.length} trucks)`
+                    }
+                  </option>
                   {uniqueTrucks.map((truck) => {
-                    const truckTrips = tripsData.trips.filter(t => t.plate_number === truck);
+                    const truckTrips = tripsData.trips.filter(t => 
+                      t.plate_number === truck && 
+                      (selectedTruckType === 'all' || t.truck_type === selectedTruckType)
+                    );
                     return (
                       <option key={truck} value={truck}>
                         {truck} ({truckTrips.length} trips)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="flex flex-col">
+                <label htmlFor="truck-type-filter" className="text-xs font-medium text-gray-700 mb-1">
+                  Filter by Truck Type
+                </label>
+                <select
+                  id="truck-type-filter"
+                  value={selectedTruckType}
+                  onChange={(e) => setSelectedTruckType(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-900 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="all">All Types ({tripsData.total_trips} trips)</option>
+                  {uniqueTruckTypes.map((truckType) => {
+                    const truckTypeTrips = tripsData.trips.filter(t => t.truck_type === truckType);
+                    return (
+                      <option key={truckType} value={truckType}>
+                        {truckType} ({truckTypeTrips.length} trips)
                       </option>
                     );
                   })}
@@ -377,11 +454,13 @@ export default function TripsPage() {
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
             <h2 className="text-xl font-semibold text-gray-900">
-              {selectedTruck === 'all' ? 'All Trips' : `Trips for ${selectedTruck}`}
+              {(selectedTruck === 'all' && selectedTruckType === 'all') ? 'All Trips' : 'Filtered Trips'}
             </h2>
-            {selectedTruck !== 'all' && (
+            {(selectedTruck !== 'all' || selectedTruckType !== 'all') && (
               <p className="text-sm text-gray-600 mt-1">
                 Showing {filteredTrips.length} of {tripsData.total_trips} total trips
+                {selectedTruck !== 'all' && ` for ${selectedTruck}`}
+                {selectedTruckType !== 'all' && ` (${selectedTruckType} type)`}
               </p>
             )}
           </div>
@@ -393,9 +472,9 @@ export default function TripsPage() {
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     #
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {/* <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Account Types
-                  </th>
+                  </th> */}
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Plate #
                   </th>
@@ -419,6 +498,9 @@ export default function TripsPage() {
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Fuel Price
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fuel Total
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Front Load
@@ -450,9 +532,9 @@ export default function TripsPage() {
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Taxes/Permits Exp
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {/* <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Salaries/Allowance
-                  </th>
+                  </th> */}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -461,9 +543,9 @@ export default function TripsPage() {
                     <td className="px-3 py-2 whitespace-nowrap text-gray-500">
                       {index + 1}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-900">
+                    {/* <td className="px-3 py-2 whitespace-nowrap text-gray-900">
                       {trip.account_types.length > 0 ? trip.account_types.join(', ') : '-'}
-                    </td>
+                    </td> */}
                     <td className="px-3 py-2 whitespace-nowrap text-gray-900 font-medium">
                       {trip.plate_number}
                     </td>
@@ -487,6 +569,9 @@ export default function TripsPage() {
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-gray-900">
                       {trip.fuel_price > 0 ? formatCurrency(trip.fuel_price) : '-'}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-orange-600 font-medium">
+                      {trip.fuel_liters > 0 && trip.fuel_price > 0 ? formatCurrency(trip.fuel_liters * trip.fuel_price) : '-'}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-gray-900">
                       {trip.front_load || '-'}
@@ -518,9 +603,9 @@ export default function TripsPage() {
                     <td className="px-3 py-2 whitespace-nowrap text-red-600">
                       {trip.taxes_permits_licenses_expense > 0 ? formatCurrency(trip.taxes_permits_licenses_expense) : '-'}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-red-600">
+                    {/* <td className="px-3 py-2 whitespace-nowrap text-red-600">
                       {trip.salaries_allowance > 0 ? formatCurrency(trip.salaries_allowance) : '-'}
-                    </td>
+                    </td> */}
                   </tr>
                 ))}
                 {/* Totals Row */}
@@ -536,6 +621,9 @@ export default function TripsPage() {
                     {totals.fuel_liters.toFixed(2)}
                   </td>
                   <td className="px-3 py-3"></td>
+                  <td className="px-3 py-3 whitespace-nowrap text-orange-600">
+                    {formatCurrency(totals.fuel_total)}
+                  </td>
                   <td className="px-3 py-3"></td>
                   <td className="px-3 py-3"></td>
                   <td className="px-3 py-3 whitespace-nowrap text-blue-600">
@@ -558,9 +646,9 @@ export default function TripsPage() {
                   <td className="px-3 py-3 whitespace-nowrap text-red-600">
                     {formatCurrency(totals.taxes_permits_licenses_expense)}
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-red-600">
+                  {/* <td className="px-3 py-3 whitespace-nowrap text-red-600">
                     {formatCurrency(totals.salaries_allowance)}
-                  </td>
+                  </td> */}
                 </tr>
               </tbody>
             </table>
