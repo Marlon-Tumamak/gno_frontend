@@ -199,15 +199,29 @@ export default function Analytics() {
               <div 
                 className="absolute inset-0 bg-no-repeat bg-center bg-cover"
                 style={{
-                  backgroundImage: 'url(/images/truck_background2.png)',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
                   width: '100%',
                   height: '100%',
+                }}
+              >
+              <div 
+                className="absolute inset-0 bg-no-repeat bg-center bg-cover"
+                style={{
+                  backgroundImage: 'url(/images/truck_background2.png)',
+                  position: 'absolute',
+                  top: -150,
+                  left: 0,
                   zIndex: 1
                 }}
-              ></div>
+              >
+
+
+
+                
+              </div>
+
+
+                
+              </div>
               {/* <div className="relative z-10">
                 <h3 className="text-white text-xl font-semibold mb-4 drop-shadow-lg">Fleet Overview</h3>
                 <div className="flex items-center justify-center">

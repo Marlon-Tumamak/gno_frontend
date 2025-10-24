@@ -15,7 +15,7 @@ export default function LoginPage() {
     // Check if user is already logged in
     const isLoggedIn = localStorage.getItem('isLoggedIn');
     if (isLoggedIn === 'true') {
-      router.push('/dashboard');
+      router.push('/analytics');
     }
   }, [router]);
 
@@ -40,7 +40,7 @@ export default function LoginPage() {
         // For demo purposes, accept any email/password combination
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('userEmail', email);
-        router.push('/dashboard');
+        router.push('/analytics');
       }, 1000);
     } else {
       setError('Please enter both email and password');
@@ -61,7 +61,7 @@ export default function LoginPage() {
         // For demo purposes, accept any email/password combination
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('userEmail', email);
-        router.push('/dashboard');
+        router.push('/analytics');
       }, 1000);
     } else {
       setError('Please enter both email and password');
