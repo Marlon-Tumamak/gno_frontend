@@ -132,7 +132,7 @@ export default function RevenuePage() {
                 <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Revenue Streams</h1>
                 <p className="text-gray-300">Financial overview of revenue and expense streams</p>
               </div>
-              <div className="flex space-x-4">
+              {/* <div className="flex space-x-4">
                 <Link
                   href="/dashboard"
                   className="px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200"
@@ -145,7 +145,7 @@ export default function RevenuePage() {
                 >
                   Refresh Data
                 </button>
-              </div>
+              </div> */}
             </div>
           </div>
 
