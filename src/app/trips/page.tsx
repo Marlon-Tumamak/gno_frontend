@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Navbar from '@/components/Navbar';
 
 interface TruckingRecord {
   id: number;
@@ -52,6 +53,8 @@ interface Trip {
 interface TripsData {
   trips: Trip[];
   total_trips: number;
+  excludedRecords: TruckingRecord[];
+  fuelInconsistencies: { tripKey: string; records: TruckingRecord[] }[];
 }
 
 export default function TripsPage() {
@@ -114,26 +117,29 @@ export default function TripsPage() {
   const processTruckingData = (data: TruckingRecord[]): TripsData => {
     // Group by plate number and date
     const tripMap = new Map<string, Trip>();
+    const excludedRecords: TruckingRecord[] = [];
+    const fuelInconsistencies: { tripKey: string; records: TruckingRecord[] }[] = [];
 
     data.forEach((record) => {
-      // Skip records without plate number or with empty plate number
-      if (!record.plate_number || record.plate_number.trim() === '' || record.plate_number.toLowerCase() === 'nan') {
-        return;
-      }
-
       // Skip records with "Beginning Balance" description
       if (record.description && record.description.toLowerCase().includes('beginning balance')) {
+        excludedRecords.push(record);
         return;
       }
 
-      const plateNumber = standardizePlateNumber(record.plate_number);
+      // Handle records without plate number - use a default identifier
+      let plateNumber = 'NO_PLATE';
+      if (record.plate_number && record.plate_number.trim() !== '' && record.plate_number.toLowerCase() !== 'nan') {
+        plateNumber = standardizePlateNumber(record.plate_number);
+      }
+
       const date = record.date;
       const tripKey = `${plateNumber}_${date}`;
 
       // Initialize trip if not exists
       if (!tripMap.has(tripKey)) {
         tripMap.set(tripKey, {
-          plate_number: plateNumber,
+          plate_number: plateNumber === 'NO_PLATE' ? 'No Plate Number' : plateNumber,
           truck_type: record.truck_type || '',
           date: date,
           trip_route: '',
@@ -235,9 +241,11 @@ export default function TripsPage() {
         }
       } 
       else if (accountTypeLower.includes('fuel')) {
-        // Handle Fuel
+        // Handle Fuel - accumulate fuel amount instead of just setting price
         trip.fuel_liters += parseFloat((record.quantity || 0).toString());
-        trip.fuel_price = parseFloat((record.price || 0).toString());
+        // For fuel, we should use the final_total (which is the total fuel amount) instead of quantity * price
+        // This ensures we capture the actual fuel amount from each record
+        trip.fuel_price += finalTotal; // Accumulate total fuel amount
       } 
       else if (accountTypeLower.includes('driver\'s allowance')) {
         // Handle Driver's Allowance
@@ -260,6 +268,45 @@ export default function TripsPage() {
       }
     });
 
+    // Check for fuel inconsistencies - records with same date/plate but different fuel amounts
+    const fuelRecordsByTrip = new Map<string, TruckingRecord[]>();
+    
+    data.forEach((record) => {
+      if (record.description && record.description.toLowerCase().includes('beginning balance')) {
+        return;
+      }
+      
+      const accountTypeLower = record.account_type.toLowerCase();
+      if (accountTypeLower.includes('fuel')) {
+        let plateNumber = 'NO_PLATE';
+        if (record.plate_number && record.plate_number.trim() !== '' && record.plate_number.toLowerCase() !== 'nan') {
+          plateNumber = standardizePlateNumber(record.plate_number);
+        }
+        
+        const tripKey = `${plateNumber}_${record.date}`;
+        
+        if (!fuelRecordsByTrip.has(tripKey)) {
+          fuelRecordsByTrip.set(tripKey, []);
+        }
+        fuelRecordsByTrip.get(tripKey)!.push(record);
+      }
+    });
+    
+    // Find trips with multiple fuel records that have different amounts
+    fuelRecordsByTrip.forEach((records, tripKey) => {
+      if (records.length > 1) {
+        const firstRecord = records[0];
+        const hasInconsistency = records.some(record => 
+          record.final_total !== firstRecord.final_total || 
+          record.quantity !== firstRecord.quantity
+        );
+        
+        if (hasInconsistency) {
+          fuelInconsistencies.push({ tripKey, records });
+        }
+      }
+    });
+
     // Calculate front_and_back_load_amount and convert to array
     const trips = Array.from(tripMap.values()).map(trip => {
       trip.front_and_back_load_amount = trip.front_load_amount + trip.back_load_amount;
@@ -275,6 +322,8 @@ export default function TripsPage() {
     return {
       trips,
       total_trips: trips.length,
+      excludedRecords,
+      fuelInconsistencies,
     };
   };
 
@@ -287,12 +336,15 @@ export default function TripsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="animate-pulse">
-              <div className="h-8 bg-gray-200 rounded mb-6"></div>
-              <div className="h-64 bg-gray-200 rounded"></div>
+      <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
+        <Navbar />
+        <div className="pt-16 p-8">
+          <div className="max-w-[95%] mx-auto">
+            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-8 shadow-2xl border border-white/10">
+              <div className="animate-pulse">
+                <div className="h-8 bg-gray-200 rounded mb-6"></div>
+                <div className="h-64 bg-gray-200 rounded"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -302,18 +354,21 @@ export default function TripsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-100 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="text-center">
-              <div className="text-red-600 text-lg font-semibold mb-4">Error</div>
-              <p className="text-gray-700">{error}</p>
-              <button
-                onClick={fetchTripsData}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Retry
-              </button>
+      <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
+        <Navbar />
+        <div className="pt-16 p-8">
+          <div className="max-w-[95%] mx-auto">
+            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-8 shadow-2xl border border-white/10">
+              <div className="text-center">
+                <div className="text-red-400 text-lg font-semibold mb-4">Error</div>
+                <p className="text-gray-300">{error}</p>
+                <button
+                  onClick={fetchTripsData}
+                  className="mt-4 px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200"
+                >
+                  Retry
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -323,10 +378,13 @@ export default function TripsPage() {
 
   if (!tripsData) {
     return (
-      <div className="min-h-screen bg-gray-100 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="text-center text-gray-700">No trips data available</div>
+      <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
+        <Navbar />
+        <div className="pt-16 p-8">
+          <div className="max-w-[95%] mx-auto">
+            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-8 shadow-2xl border border-white/10">
+              <div className="text-center text-gray-300">No trips data available</div>
+            </div>
           </div>
         </div>
       </div>
@@ -355,7 +413,7 @@ export default function TripsPage() {
   const totals = filteredTrips.reduce((acc, trip) => ({
     allowance: acc.allowance + trip.allowance,
     fuel_liters: acc.fuel_liters + trip.fuel_liters,
-    fuel_total: acc.fuel_total + (trip.fuel_liters * trip.fuel_price),
+    fuel_total: acc.fuel_total + trip.fuel_price, // Use accumulated fuel amount directly
     front_load_amount: acc.front_load_amount + trip.front_load_amount,
     back_load_amount: acc.back_load_amount + trip.back_load_amount,
     front_and_back_load_amount: acc.front_and_back_load_amount + trip.front_and_back_load_amount,
@@ -379,36 +437,38 @@ export default function TripsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <div className="max-w-[95%] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Trips Summary</h1>
-              <p className="text-gray-600">Consolidated view of all trips from trucking data (same date entries combined per truck)</p>
-              <p className="text-sm text-gray-500 mt-1">
-                Total Trips: {tripsData.total_trips}
-                {(selectedTruck !== 'all' || selectedTruckType !== 'all') && (
-                  <span className="ml-2 text-blue-600 font-medium">
-                    (Showing {filteredTrips.length} trips
-                    {selectedTruck !== 'all' && ` for ${selectedTruck}`}
-                    {selectedTruckType !== 'all' && ` - ${selectedTruckType} type`})
-                  </span>
-                )}
-              </p>
-            </div>
-            <div className="flex space-x-4 items-center">
-              <div className="flex flex-col">
-                <label htmlFor="truck-filter" className="text-xs font-medium text-gray-700 mb-1">
-                  Filter by Truck
-                </label>
-                <select
-                  id="truck-filter"
-                  value={selectedTruck}
-                  onChange={(e) => setSelectedTruck(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-900 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
+    <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
+      <Navbar />
+      <div className="pt-16 p-8">
+        <div className="max-w-[95%] mx-auto mt-5">
+          {/* Header */}
+          <div className="bg-black/60 backdrop-blur-sm rounded-lg p-8 shadow-2xl border border-white/10 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Trips Summary</h1>
+                <p className="text-gray-300">Consolidated view of all trips from trucking data (same date entries combined per truck)</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Total Trips: {tripsData.total_trips}
+                  {(selectedTruck !== 'all' || selectedTruckType !== 'all') && (
+                    <span className="ml-2 text-orange-400 font-medium">
+                      (Showing {filteredTrips.length} trips
+                      {selectedTruck !== 'all' && ` for ${selectedTruck}`}
+                      {selectedTruckType !== 'all' && ` - ${selectedTruckType} type`})
+                    </span>
+                  )}
+                </p>
+              </div>
+              <div className="flex space-x-4 items-center">
+                <div className="flex flex-col">
+                  <label htmlFor="truck-filter" className="text-xs font-medium text-gray-300 mb-1">
+                    Filter by Truck
+                  </label>
+                  <select
+                    id="truck-filter"
+                    value={selectedTruck}
+                    onChange={(e) => setSelectedTruck(e.target.value)}
+                    className="px-4 py-2 border border-white/20 rounded-md bg-black/40 text-white hover:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                  >
                   <option value="all">
                     {selectedTruckType === 'all' 
                       ? `All Trucks (${tripsData.total_trips} trips)` 
@@ -428,16 +488,16 @@ export default function TripsPage() {
                   })}
                 </select>
               </div>
-              <div className="flex flex-col">
-                <label htmlFor="truck-type-filter" className="text-xs font-medium text-gray-700 mb-1">
-                  Filter by Truck Type
-                </label>
-                <select
-                  id="truck-type-filter"
-                  value={selectedTruckType}
-                  onChange={(e) => setSelectedTruckType(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-900 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
+                <div className="flex flex-col">
+                  <label htmlFor="truck-type-filter" className="text-xs font-medium text-gray-300 mb-1">
+                    Filter by Truck Type
+                  </label>
+                  <select
+                    id="truck-type-filter"
+                    value={selectedTruckType}
+                    onChange={(e) => setSelectedTruckType(e.target.value)}
+                    className="px-4 py-2 border border-white/20 rounded-md bg-black/40 text-white hover:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                  >
                   <option value="all">All Types ({tripsData.total_trips} trips)</option>
                   {uniqueTruckTypes.map((truckType) => {
                     const truckTypeTrips = tripsData.trips.filter(t => t.truck_type === truckType);
@@ -449,234 +509,384 @@ export default function TripsPage() {
                   })}
                 </select>
               </div>
-              <Link
-                href="/dashboard"
-                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors self-end"
-              >
-                Back to Dashboard
-              </Link>
-              <button
-                onClick={fetchTripsData}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors self-end"
-              >
-                Refresh Data
-              </button>
+                {/* <Link
+                  href="/dashboard"
+                  className="px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200 self-end"
+                >
+                  Back to Dashboard
+                </Link>
+                <button
+                  onClick={fetchTripsData}
+                  className="px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200 self-end"
+                >
+                  Refresh Data
+                </button> */}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Trips Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-xl font-semibold text-gray-900">
-              {(selectedTruck === 'all' && selectedTruckType === 'all') ? 'All Trips' : 'Filtered Trips'}
-            </h2>
-            {(selectedTruck !== 'all' || selectedTruckType !== 'all') && (
-              <p className="text-sm text-gray-600 mt-1">
-                Showing {filteredTrips.length} of {tripsData.total_trips} total trips
-                {selectedTruck !== 'all' && ` for ${selectedTruck}`}
-                {selectedTruckType !== 'all' && ` (${selectedTruckType} type)`}
-              </p>
-            )}
+          {/* Trips Table */}
+          <div className="bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/10 bg-black/40">
+              <h2 className="text-xl font-semibold text-white drop-shadow-lg">
+                {(selectedTruck === 'all' && selectedTruckType === 'all') ? 'All Trips' : 'Filtered Trips'}
+              </h2>
+              {(selectedTruck !== 'all' || selectedTruckType !== 'all') && (
+                <p className="text-sm text-gray-300 mt-1">
+                  Showing {filteredTrips.length} of {tripsData.total_trips} total trips
+                  {selectedTruck !== 'all' && ` for ${selectedTruck}`}
+                  {selectedTruckType !== 'all' && ` (${selectedTruckType} type)`}
+                </p>
+              )}
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50 sticky top-0">
-                <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    #
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-white/10 text-sm">
+                <thead className="bg-black/40 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      #
+                    </th>
+                    {/* <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Account Types
+                    </th> */}
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Plate #
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Trip/Route
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Driver
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Allowance
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Ref #
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Fuel Liters
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Fuel Amount
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Fuel Total
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Front Load
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Front Load Ref#
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Front Load Amt
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Back Load Ref#
                   </th>
-                  {/* <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Account Types
-                  </th> */}
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Plate #
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Trip/Route
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Driver
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Allowance
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ref #
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fuel Liters
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fuel Price
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fuel Total
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Front Load
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Front Load Ref#
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Front Load Amt
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Back Load Ref#
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Back Load Amt
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Front & Back Amt
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Income
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Remarks
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Insurance Exp
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Repairs & Maint Exp
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Taxes/Permits Exp
-                  </th>
-                  {/* <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Salaries/Allowance
-                  </th> */}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredTrips.map((trip, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-500">
-                      {index + 1}
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Back Load Amt
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Front & Back Amt
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Income
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Remarks
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Insurance Exp
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Repairs & Maint Exp
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Taxes/Permits Exp
+                    </th>
+                    {/* <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Salaries/Allowance
+                    </th> */}
+                  </tr>
+                </thead>
+                <tbody className="bg-black/20 divide-y divide-white/10">
+                  {filteredTrips.map((trip, index) => (
+                    <tr key={index} className="hover:bg-white/5">
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-400">
+                        {index + 1}
+                      </td>
+                      {/* <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                        {trip.account_types.length > 0 ? trip.account_types.join(', ') : '-'}
+                      </td> */}
+                      <td className="px-3 py-2 whitespace-nowrap text-white font-medium">
+                        {trip.plate_number}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                        {trip.date}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                        {trip.trip_route || '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                        {trip.driver || '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                        {trip.allowance > 0 ? formatCurrency(trip.allowance) : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                        {trip.reference_numbers.length > 0 ? trip.reference_numbers.join(', ') : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                        {trip.fuel_liters > 0 ? trip.fuel_liters.toFixed(2) : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                        {trip.fuel_price > 0 ? formatCurrency(trip.fuel_price) : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-orange-400 font-medium">
+                        {trip.fuel_price > 0 ? formatCurrency(trip.fuel_price) : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                        {trip.front_load || '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                        {trip.front_load_reference_numbers.length > 0 ? trip.front_load_reference_numbers.join(', ') : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-blue-400 font-medium">
+                        {trip.front_load_amount > 0 ? formatCurrency(trip.front_load_amount) : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                        {trip.back_load_reference_numbers.length > 0 ? trip.back_load_reference_numbers.join(', ') : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-green-400 font-medium">
+                        {trip.back_load_amount > 0 ? formatCurrency(trip.back_load_amount) : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-purple-400 font-bold">
+                        {trip.front_and_back_load_amount > 0 ? formatCurrency(trip.front_and_back_load_amount) : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-green-400 font-bold">
+                        {trip.income > 0 ? formatCurrency(trip.income) : '-'}
+                      </td>
+                      <td className="px-3 py-2 text-gray-300 max-w-xs truncate">
+                        {trip.remarks || '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-red-400">
+                        {trip.insurance_expense > 0 ? formatCurrency(trip.insurance_expense) : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-red-400">
+                        {trip.repairs_maintenance_expense > 0 ? formatCurrency(trip.repairs_maintenance_expense) : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-red-400">
+                        {trip.taxes_permits_licenses_expense > 0 ? formatCurrency(trip.taxes_permits_licenses_expense) : '-'}
+                      </td>
+                      {/* <td className="px-3 py-2 whitespace-nowrap text-red-400">
+                        {trip.salaries_allowance > 0 ? formatCurrency(trip.salaries_allowance) : '-'}
+                      </td> */}
+                    </tr>
+                  ))}
+                  {/* Totals Row */}
+                  <tr className="bg-black/40 font-bold">
+                    <td colSpan={6} className="px-3 py-3 text-right text-white">
+                      TOTALS:
                     </td>
-                    {/* <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.account_types.length > 0 ? trip.account_types.join(', ') : '-'}
-                    </td> */}
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-900 font-medium">
-                      {trip.plate_number}
+                    <td className="px-3 py-3 whitespace-nowrap text-white">
+                      {formatCurrency(totals.allowance)}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.date}
+                    <td className="px-3 py-3"></td>
+                    <td className="px-3 py-3 whitespace-nowrap text-white">
+                      {totals.fuel_liters.toFixed(2)}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.trip_route || '-'}
+                    <td className="px-3 py-3"></td>
+                    <td className="px-3 py-3 whitespace-nowrap text-orange-400">
+                      {formatCurrency(totals.fuel_total)}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.driver || '-'}
+                    <td className="px-3 py-3"></td>
+                    <td className="px-3 py-3"></td>
+                    <td className="px-3 py-3 whitespace-nowrap text-blue-400">
+                      {formatCurrency(totals.front_load_amount)}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.allowance > 0 ? formatCurrency(trip.allowance) : '-'}
+                    <td className="px-3 py-3"></td>
+                    <td className="px-3 py-3 whitespace-nowrap text-green-400">
+                      {formatCurrency(totals.back_load_amount)}
+                  </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-purple-400">
+                      {formatCurrency(totals.front_and_back_load_amount)}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.reference_numbers.length > 0 ? trip.reference_numbers.join(', ') : '-'}
+                    <td className="px-3 py-3 whitespace-nowrap text-green-400">
+                      {formatCurrency(totals.income)}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.fuel_liters > 0 ? trip.fuel_liters.toFixed(2) : '-'}
+                    <td className="px-3 py-3"></td>
+                    <td className="px-3 py-3 whitespace-nowrap text-red-400">
+                      {formatCurrency(totals.insurance_expense)}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.fuel_price > 0 ? formatCurrency(trip.fuel_price) : '-'}
+                    <td className="px-3 py-3 whitespace-nowrap text-red-400">
+                      {formatCurrency(totals.repairs_maintenance_expense)}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-orange-600 font-medium">
-                      {trip.fuel_liters > 0 && trip.fuel_price > 0 ? formatCurrency(trip.fuel_liters * trip.fuel_price) : '-'}
+                    <td className="px-3 py-3 whitespace-nowrap text-red-400">
+                      {formatCurrency(totals.taxes_permits_licenses_expense)}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.front_load || '-'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.front_load_reference_numbers.length > 0 ? trip.front_load_reference_numbers.join(', ') : '-'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-blue-600 font-medium">
-                      {trip.front_load_amount > 0 ? formatCurrency(trip.front_load_amount) : '-'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-gray-900">
-                      {trip.back_load_reference_numbers.length > 0 ? trip.back_load_reference_numbers.join(', ') : '-'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-green-600 font-medium">
-                      {trip.back_load_amount > 0 ? formatCurrency(trip.back_load_amount) : '-'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-purple-600 font-bold">
-                      {trip.front_and_back_load_amount > 0 ? formatCurrency(trip.front_and_back_load_amount) : '-'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-green-600 font-bold">
-                      {trip.income > 0 ? formatCurrency(trip.income) : '-'}
-                    </td>
-                    <td className="px-3 py-2 text-gray-900 max-w-xs truncate">
-                      {trip.remarks || '-'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-red-600">
-                      {trip.insurance_expense > 0 ? formatCurrency(trip.insurance_expense) : '-'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-red-600">
-                      {trip.repairs_maintenance_expense > 0 ? formatCurrency(trip.repairs_maintenance_expense) : '-'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-red-600">
-                      {trip.taxes_permits_licenses_expense > 0 ? formatCurrency(trip.taxes_permits_licenses_expense) : '-'}
-                    </td>
-                    {/* <td className="px-3 py-2 whitespace-nowrap text-red-600">
-                      {trip.salaries_allowance > 0 ? formatCurrency(trip.salaries_allowance) : '-'}
+                    {/* <td className="px-3 py-3 whitespace-nowrap text-red-400">
+                      {formatCurrency(totals.salaries_allowance)}
                     </td> */}
                   </tr>
-                ))}
-                {/* Totals Row */}
-                <tr className="bg-gray-100 font-bold">
-                  <td colSpan={6} className="px-3 py-3 text-right text-gray-900">
-                    TOTALS:
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-gray-900">
-                    {formatCurrency(totals.allowance)}
-                  </td>
-                  <td className="px-3 py-3"></td>
-                  <td className="px-3 py-3 whitespace-nowrap text-gray-900">
-                    {totals.fuel_liters.toFixed(2)}
-                  </td>
-                  <td className="px-3 py-3"></td>
-                  <td className="px-3 py-3 whitespace-nowrap text-orange-600">
-                    {formatCurrency(totals.fuel_total)}
-                  </td>
-                  <td className="px-3 py-3"></td>
-                  <td className="px-3 py-3"></td>
-                  <td className="px-3 py-3 whitespace-nowrap text-blue-600">
-                    {formatCurrency(totals.front_load_amount)}
-                  </td>
-                  <td className="px-3 py-3"></td>
-                  <td className="px-3 py-3 whitespace-nowrap text-green-600">
-                    {formatCurrency(totals.back_load_amount)}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-purple-600">
-                    {formatCurrency(totals.front_and_back_load_amount)}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-green-600">
-                    {formatCurrency(totals.income)}
-                  </td>
-                  <td className="px-3 py-3"></td>
-                  <td className="px-3 py-3 whitespace-nowrap text-red-600">
-                    {formatCurrency(totals.insurance_expense)}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-red-600">
-                    {formatCurrency(totals.repairs_maintenance_expense)}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-red-600">
-                    {formatCurrency(totals.taxes_permits_licenses_expense)}
-                  </td>
-                  {/* <td className="px-3 py-3 whitespace-nowrap text-red-600">
-                    {formatCurrency(totals.salaries_allowance)}
-                  </td> */}
-                </tr>
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          {/* Debug Section - Excluded Records */}
+          {tripsData.excludedRecords.length > 0 && (
+            <div className="bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 overflow-hidden mt-6">
+              <div className="px-6 py-4 border-b border-white/10 bg-red-500/20">
+                <h2 className="text-xl font-semibold text-red-400 drop-shadow-lg">
+                  Excluded Records ({tripsData.excludedRecords.length} records)
+                </h2>
+                <p className="text-sm text-red-300 mt-1">
+                  These records are excluded from trips calculation (Beginning Balance entries)
+                </p>
+              </div>
+            
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-white/10 text-sm">
+                  <thead className="bg-black/40">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Account #
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Account Type
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Description
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Final Total
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Plate Number
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-black/20 divide-y divide-white/10">
+                    {tripsData.excludedRecords.map((record, index) => (
+                      <tr key={index} className="hover:bg-white/5">
+                        <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                          {record.account_number}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                          {record.account_type}
+                        </td>
+                        <td className="px-3 py-2 text-gray-300 max-w-xs truncate">
+                          {record.description}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-white">
+                          {formatCurrency(record.final_total)}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                          {record.date}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                          {record.plate_number || 'No Plate'}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+          {/* Fuel Inconsistencies Section */}
+          {tripsData.fuelInconsistencies.length > 0 && (
+            <div className="bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 overflow-hidden mt-6">
+              <div className="px-6 py-4 border-b border-white/10 bg-yellow-500/20">
+                <h2 className="text-xl font-semibold text-yellow-400 drop-shadow-lg">
+                  Fuel Inconsistencies ({tripsData.fuelInconsistencies.length} groups)
+                </h2>
+                <p className="text-sm text-yellow-300 mt-1">
+                  Records with same date and plate number but different fuel amounts/liters
+                </p>
+              </div>
+            
+              <div className="overflow-x-auto">
+                {tripsData.fuelInconsistencies.map((inconsistency, groupIndex) => (
+                  <div key={groupIndex} className="border-b border-white/10 last:border-b-0">
+                    <div className="px-6 py-3 bg-black/40">
+                      <h3 className="text-lg font-medium text-white">
+                        Trip: {inconsistency.tripKey}
+                      </h3>
+                      <p className="text-sm text-gray-300">
+                        {inconsistency.records.length} fuel records with different amounts
+                      </p>
+                    </div>
+                    
+                    <table className="min-w-full divide-y divide-white/10 text-sm">
+                      <thead className="bg-black/60">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                            Account #
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                            Description
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                            Quantity (Liters)
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                            Price per Liter
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                            Final Total
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                            Plate Number
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-black/20 divide-y divide-white/10">
+                        {inconsistency.records.map((record, recordIndex) => (
+                          <tr key={recordIndex} className="hover:bg-white/5">
+                            <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                              {record.account_number}
+                            </td>
+                            <td className="px-3 py-2 text-gray-300 max-w-xs truncate">
+                              {record.description}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                              {record.quantity || 0}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                              {record.price || 0}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-orange-400 font-medium">
+                              {formatCurrency(record.final_total)}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                              {record.date}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                              {record.plate_number || 'No Plate'}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         </div>
       </div>
     </div>
