@@ -38,6 +38,7 @@ interface Trip {
   front_load: string;
   front_load_reference_numbers: string[];
   front_load_amount: number;
+  back_load: string;
   back_load_reference_numbers: string[];
   back_load_amount: number;
   front_and_back_load_amount: number;
@@ -64,6 +65,27 @@ export default function TripsPage() {
   const [selectedTruck, setSelectedTruck] = useState<string>('all');
   const [selectedTruckType, setSelectedTruckType] = useState<string>('all');
 
+  // Filter states for all columns
+  const [filters, setFilters] = useState({
+    plateNumber: '',
+    date: '',
+    tripRoute: '',
+    driver: '',
+    allowance: { min: '', max: '' },
+    refNumber: '',
+    fuelLiters: { min: '', max: '' },
+    fuelAmount: { min: '', max: '' },
+    frontLoad: '',
+    frontLoadAmount: { min: '', max: '' },
+    backLoad: '',
+    backLoadAmount: { min: '', max: '' },
+    income: { min: '', max: '' },
+    remarks: '',
+    insuranceExpense: { min: '', max: '' },
+    repairsMaintenanceExpense: { min: '', max: '' },
+    taxesPermitsExpense: { min: '', max: '' }
+  });
+
   useEffect(() => {
     fetchTripsData();
   }, []);
@@ -81,6 +103,52 @@ export default function TripsPage() {
       }
     }
   }, [selectedTruckType, selectedTruck, tripsData]);
+
+  // Filter update functions
+  const updateFilter = (key: string, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const clearAllFilters = () => {
+    setFilters({
+      plateNumber: '',
+      date: '',
+      tripRoute: '',
+      driver: '',
+      allowance: { min: '', max: '' },
+      refNumber: '',
+      fuelLiters: { min: '', max: '' },
+      fuelAmount: { min: '', max: '' },
+      frontLoad: '',
+      frontLoadAmount: { min: '', max: '' },
+      backLoad: '',
+      backLoadAmount: { min: '', max: '' },
+      income: { min: '', max: '' },
+      remarks: '',
+      insuranceExpense: { min: '', max: '' },
+      repairsMaintenanceExpense: { min: '', max: '' },
+      taxesPermitsExpense: { min: '', max: '' }
+    });
+    setSelectedTruck('all');
+    setSelectedTruckType('all');
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = () => {
+    return selectedTruck !== 'all' || 
+           selectedTruckType !== 'all' ||
+           Object.values(filters).some(filter => {
+             if (typeof filter === 'string') {
+               return filter !== '';
+             } else if (typeof filter === 'object' && filter !== null) {
+               return filter.min !== '' || filter.max !== '';
+             }
+             return false;
+           });
+  };
 
   const fetchTripsData = async () => {
     try {
@@ -151,6 +219,7 @@ export default function TripsPage() {
           front_load: '',
           front_load_reference_numbers: [],
           front_load_amount: 0,
+          back_load: '',
           back_load_reference_numbers: [],
           back_load_amount: 0,
           front_and_back_load_amount: 0,
@@ -209,6 +278,7 @@ export default function TripsPage() {
           // Strike case - all amount goes to back load, front load amount stays 0
           trip.back_load_amount += finalTotal;
           if (record.front_load) trip.front_load = record.front_load;
+          if (record.back_load) trip.back_load = record.back_load;
           if (record.reference_number && !trip.back_load_reference_numbers.includes(record.reference_number)) {
             trip.back_load_reference_numbers.push(record.reference_number);
           }
@@ -219,6 +289,7 @@ export default function TripsPage() {
           trip.back_load_amount += halfAmount;
           
           if (record.front_load) trip.front_load = record.front_load;
+          if (record.back_load) trip.back_load = record.back_load;
           if (record.reference_number && !trip.front_load_reference_numbers.includes(record.reference_number)) {
             trip.front_load_reference_numbers.push(record.reference_number);
           }
@@ -235,6 +306,7 @@ export default function TripsPage() {
         } else if (hasBackLoad) {
           // Only back load
           trip.back_load_amount += finalTotal;
+          if (record.back_load) trip.back_load = record.back_load;
           if (record.reference_number && !trip.back_load_reference_numbers.includes(record.reference_number)) {
             trip.back_load_reference_numbers.push(record.reference_number);
           }
@@ -402,11 +474,73 @@ export default function TripsPage() {
         .map(trip => trip.plate_number)
       )).sort();
 
-  // Filter trips based on selected truck and truck type
+  // Get unique values for dropdown filters
+  const uniquePlateNumbers = Array.from(new Set(tripsData.trips.map(trip => trip.plate_number))).sort();
+  const uniqueTripRoutes = Array.from(new Set(tripsData.trips
+    .map(trip => trip.trip_route)
+    .filter(route => route && route.trim() !== '')
+  )).sort();
+  const uniqueDrivers = Array.from(new Set(tripsData.trips
+    .map(trip => trip.driver)
+    .filter(driver => driver && driver.trim() !== '')
+  )).sort();
+  const uniqueRefNumbers = Array.from(new Set(tripsData.trips
+    .flatMap(trip => trip.reference_numbers)
+    .filter(ref => ref && ref.trim() !== '')
+  )).sort();
+  const uniqueFrontLoads = Array.from(new Set(tripsData.trips
+    .map(trip => trip.front_load)
+    .filter(load => load && load.trim() !== '')
+  )).sort();
+  const uniqueBackLoads = Array.from(new Set(tripsData.trips
+    .map(trip => trip.back_load)
+    .filter(load => load && load.trim() !== '')
+  )).sort();
+  const uniqueRemarks = Array.from(new Set(tripsData.trips
+    .map(trip => trip.remarks)
+    .filter(remark => remark && remark.trim() !== '')
+  )).sort();
+
+  // Filter trips based on all filters
   const filteredTrips = tripsData.trips.filter(trip => {
+    // Existing truck and truck type filters
     const truckMatch = selectedTruck === 'all' || trip.plate_number === selectedTruck;
     const truckTypeMatch = selectedTruckType === 'all' || trip.truck_type === selectedTruckType;
-    return truckMatch && truckTypeMatch;
+    
+    // Dropdown filters (exact matches)
+    const plateNumberMatch = !filters.plateNumber || trip.plate_number === filters.plateNumber;
+    const dateMatch = !filters.date || trip.date.includes(filters.date);
+    const tripRouteMatch = !filters.tripRoute || trip.trip_route === filters.tripRoute;
+    const driverMatch = !filters.driver || trip.driver === filters.driver;
+    const refNumberMatch = !filters.refNumber || trip.reference_numbers.includes(filters.refNumber);
+    const frontLoadMatch = !filters.frontLoad || trip.front_load === filters.frontLoad;
+    const backLoadMatch = !filters.backLoad || trip.back_load === filters.backLoad;
+    const remarksMatch = !filters.remarks || trip.remarks === filters.remarks;
+    
+    // Numeric range filters
+    const allowanceMatch = (!filters.allowance.min || trip.allowance >= parseFloat(filters.allowance.min)) &&
+      (!filters.allowance.max || trip.allowance <= parseFloat(filters.allowance.max));
+    const fuelLitersMatch = (!filters.fuelLiters.min || trip.fuel_liters >= parseFloat(filters.fuelLiters.min)) &&
+      (!filters.fuelLiters.max || trip.fuel_liters <= parseFloat(filters.fuelLiters.max));
+    const fuelAmountMatch = (!filters.fuelAmount.min || trip.fuel_price >= parseFloat(filters.fuelAmount.min)) &&
+      (!filters.fuelAmount.max || trip.fuel_price <= parseFloat(filters.fuelAmount.max));
+    const frontLoadAmountMatch = (!filters.frontLoadAmount.min || trip.front_load_amount >= parseFloat(filters.frontLoadAmount.min)) &&
+      (!filters.frontLoadAmount.max || trip.front_load_amount <= parseFloat(filters.frontLoadAmount.max));
+    const backLoadAmountMatch = (!filters.backLoadAmount.min || trip.back_load_amount >= parseFloat(filters.backLoadAmount.min)) &&
+      (!filters.backLoadAmount.max || trip.back_load_amount <= parseFloat(filters.backLoadAmount.max));
+    const incomeMatch = (!filters.income.min || trip.income >= parseFloat(filters.income.min)) &&
+      (!filters.income.max || trip.income <= parseFloat(filters.income.max));
+    const insuranceExpenseMatch = (!filters.insuranceExpense.min || trip.insurance_expense >= parseFloat(filters.insuranceExpense.min)) &&
+      (!filters.insuranceExpense.max || trip.insurance_expense <= parseFloat(filters.insuranceExpense.max));
+    const repairsMaintenanceExpenseMatch = (!filters.repairsMaintenanceExpense.min || trip.repairs_maintenance_expense >= parseFloat(filters.repairsMaintenanceExpense.min)) &&
+      (!filters.repairsMaintenanceExpense.max || trip.repairs_maintenance_expense <= parseFloat(filters.repairsMaintenanceExpense.max));
+    const taxesPermitsExpenseMatch = (!filters.taxesPermitsExpense.min || trip.taxes_permits_licenses_expense >= parseFloat(filters.taxesPermitsExpense.min)) &&
+      (!filters.taxesPermitsExpense.max || trip.taxes_permits_licenses_expense <= parseFloat(filters.taxesPermitsExpense.max));
+    
+    return truckMatch && truckTypeMatch && plateNumberMatch && dateMatch && tripRouteMatch && 
+           driverMatch && refNumberMatch && frontLoadMatch && backLoadMatch && remarksMatch && allowanceMatch && 
+           fuelLitersMatch && fuelAmountMatch && frontLoadAmountMatch && backLoadAmountMatch && 
+           incomeMatch && insuranceExpenseMatch && repairsMaintenanceExpenseMatch && taxesPermitsExpenseMatch;
   });
 
   // Calculate totals for filtered trips
@@ -459,6 +593,14 @@ export default function TripsPage() {
                 </p>
               </div>
               <div className="flex space-x-4 items-center">
+                {hasActiveFilters() && (
+                  <button
+                    onClick={clearAllFilters}
+                    className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-md transition-all duration-200 text-sm font-medium"
+                  >
+                    Clear All Filters
+                  </button>
+                )}
                 <div className="flex flex-col">
                   <label htmlFor="truck-filter" className="text-xs font-medium text-gray-300 mb-1">
                     Filter by Truck
@@ -542,7 +684,296 @@ export default function TripsPage() {
           
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-white/10 text-sm">
-                <thead className="bg-black/40 sticky top-0">
+                {/* Filter Row */}
+                <thead className="bg-black/60 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      #
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <select
+                        value={filters.plateNumber}
+                        onChange={(e) => updateFilter('plateNumber', e.target.value)}
+                        className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      >
+                        <option value="">All Plate #s</option>
+                        {uniquePlateNumbers.map((plate) => (
+                          <option key={plate} value={plate}>
+                            {plate}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <input
+                        type="date"
+                        value={filters.date}
+                        onChange={(e) => updateFilter('date', e.target.value)}
+                        className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      />
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <select
+                        value={filters.tripRoute}
+                        onChange={(e) => updateFilter('tripRoute', e.target.value)}
+                        className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      >
+                        <option value="">All Routes</option>
+                        {uniqueTripRoutes.map((route) => (
+                          <option key={route} value={route}>
+                            {route}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <select
+                        value={filters.driver}
+                        onChange={(e) => updateFilter('driver', e.target.value)}
+                        className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      >
+                        <option value="">All Drivers</option>
+                        {uniqueDrivers.map((driver) => (
+                          <option key={driver} value={driver}>
+                            {driver}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <div className="flex space-x-1">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filters.allowance.min}
+                          onChange={(e) => updateFilter('allowance', { ...filters.allowance, min: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filters.allowance.max}
+                          onChange={(e) => updateFilter('allowance', { ...filters.allowance, max: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <select
+                        value={filters.refNumber}
+                        onChange={(e) => updateFilter('refNumber', e.target.value)}
+                        className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      >
+                        <option value="">All Ref #s</option>
+                        {uniqueRefNumbers.map((ref) => (
+                          <option key={ref} value={ref}>
+                            {ref}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <div className="flex space-x-1">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filters.fuelLiters.min}
+                          onChange={(e) => updateFilter('fuelLiters', { ...filters.fuelLiters, min: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filters.fuelLiters.max}
+                          onChange={(e) => updateFilter('fuelLiters', { ...filters.fuelLiters, max: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <div className="flex space-x-1">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filters.fuelAmount.min}
+                          onChange={(e) => updateFilter('fuelAmount', { ...filters.fuelAmount, min: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filters.fuelAmount.max}
+                          onChange={(e) => updateFilter('fuelAmount', { ...filters.fuelAmount, max: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Fuel Total
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <select
+                        value={filters.frontLoad}
+                        onChange={(e) => updateFilter('frontLoad', e.target.value)}
+                        className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      >
+                        <option value="">All Front Loads</option>
+                        {uniqueFrontLoads.map((load) => (
+                          <option key={load} value={load}>
+                            {load}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Front Load Ref#
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <div className="flex space-x-1">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filters.frontLoadAmount.min}
+                          onChange={(e) => updateFilter('frontLoadAmount', { ...filters.frontLoadAmount, min: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filters.frontLoadAmount.max}
+                          onChange={(e) => updateFilter('frontLoadAmount', { ...filters.frontLoadAmount, max: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <select
+                        value={filters.backLoad}
+                        onChange={(e) => updateFilter('backLoad', e.target.value)}
+                        className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      >
+                        <option value="">All Back Loads</option>
+                        {uniqueBackLoads.map((load) => (
+                          <option key={load} value={load}>
+                            {load}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Back Load Ref#
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <div className="flex space-x-1">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filters.backLoadAmount.min}
+                          onChange={(e) => updateFilter('backLoadAmount', { ...filters.backLoadAmount, min: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filters.backLoadAmount.max}
+                          onChange={(e) => updateFilter('backLoadAmount', { ...filters.backLoadAmount, max: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Front & Back Amt
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <div className="flex space-x-1">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filters.income.min}
+                          onChange={(e) => updateFilter('income', { ...filters.income, min: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filters.income.max}
+                          onChange={(e) => updateFilter('income', { ...filters.income, max: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <select
+                        value={filters.remarks}
+                        onChange={(e) => updateFilter('remarks', e.target.value)}
+                        className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      >
+                        <option value="">All Remarks</option>
+                        {uniqueRemarks.map((remark) => (
+                          <option key={remark} value={remark}>
+                            {remark}
+                          </option>
+                        ))}
+                      </select>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <div className="flex space-x-1">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filters.insuranceExpense.min}
+                          onChange={(e) => updateFilter('insuranceExpense', { ...filters.insuranceExpense, min: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filters.insuranceExpense.max}
+                          onChange={(e) => updateFilter('insuranceExpense', { ...filters.insuranceExpense, max: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <div className="flex space-x-1">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filters.repairsMaintenanceExpense.min}
+                          onChange={(e) => updateFilter('repairsMaintenanceExpense', { ...filters.repairsMaintenanceExpense, min: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filters.repairsMaintenanceExpense.max}
+                          onChange={(e) => updateFilter('repairsMaintenanceExpense', { ...filters.repairsMaintenanceExpense, max: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <div className="flex space-x-1">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filters.taxesPermitsExpense.min}
+                          onChange={(e) => updateFilter('taxesPermitsExpense', { ...filters.taxesPermitsExpense, min: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filters.taxesPermitsExpense.max}
+                          onChange={(e) => updateFilter('taxesPermitsExpense', { ...filters.taxesPermitsExpense, max: e.target.value })}
+                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                {/* Header Row */}
+                <thead className="bg-black/40 sticky top-12">
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       #
@@ -585,6 +1016,9 @@ export default function TripsPage() {
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Front Load Amt
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Back Load
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Back Load Ref#
@@ -661,6 +1095,9 @@ export default function TripsPage() {
                         {trip.front_load_amount > 0 ? formatCurrency(trip.front_load_amount) : '-'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                        {trip.back_load || '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
                         {trip.back_load_reference_numbers.length > 0 ? trip.back_load_reference_numbers.join(', ') : '-'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-green-400 font-medium">
@@ -710,6 +1147,7 @@ export default function TripsPage() {
                     <td className="px-3 py-3 whitespace-nowrap text-blue-400">
                       {formatCurrency(totals.front_load_amount)}
                     </td>
+                    <td className="px-3 py-3"></td>
                     <td className="px-3 py-3"></td>
                     <td className="px-3 py-3 whitespace-nowrap text-green-400">
                       {formatCurrency(totals.back_load_amount)}
