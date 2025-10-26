@@ -43,6 +43,7 @@ interface Trip {
   back_load_amount: number;
   front_and_back_load_amount: number;
   income: number;
+  other_income: number;
   remarks: string;
   insurance_expense: number;
   repairs_maintenance_expense: number;
@@ -224,6 +225,7 @@ export default function TripsPage() {
           back_load_amount: 0,
           front_and_back_load_amount: 0,
           income: 0,
+          other_income: 0,
           remarks: '',
           insurance_expense: 0,
           repairs_maintenance_expense: 0,
@@ -258,8 +260,13 @@ export default function TripsPage() {
       const accountTypeLower = record.account_type.toLowerCase();
 
       if (accountTypeLower.includes('hauling income')) {
-        // Add hauling income to trip income
-        trip.income += finalTotal;
+        // Check if this is Rice Hull Ton - if so, add to other_income instead of regular income
+        if (record.remarks && record.remarks.toLowerCase().includes('rice hull ton')) {
+          trip.other_income += finalTotal;
+        } else {
+          // Add hauling income to trip income (excluding Rice Hull Ton)
+          trip.income += finalTotal;
+        }
         
         // Handle Hauling Income - loads
         const hasFrontLoad = record.front_load && 
@@ -552,6 +559,7 @@ export default function TripsPage() {
     back_load_amount: acc.back_load_amount + trip.back_load_amount,
     front_and_back_load_amount: acc.front_and_back_load_amount + trip.front_and_back_load_amount,
     income: acc.income + trip.income,
+    other_income: acc.other_income + trip.other_income,
     insurance_expense: acc.insurance_expense + trip.insurance_expense,
     repairs_maintenance_expense: acc.repairs_maintenance_expense + trip.repairs_maintenance_expense,
     taxes_permits_licenses_expense: acc.taxes_permits_licenses_expense + trip.taxes_permits_licenses_expense,
@@ -564,6 +572,7 @@ export default function TripsPage() {
     back_load_amount: 0,
     front_and_back_load_amount: 0,
     income: 0,
+    other_income: 0,
     insurance_expense: 0,
     repairs_maintenance_expense: 0,
     taxes_permits_licenses_expense: 0,
@@ -682,10 +691,10 @@ export default function TripsPage() {
               )}
           </div>
           
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[100vh]">
               <table className="min-w-full divide-y divide-white/10 text-sm">
                 {/* Filter Row */}
-                <thead className="bg-black/60 sticky top-0">
+                <thead className="bg-black/60 sticky top-0 z-20">
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       #
@@ -903,6 +912,9 @@ export default function TripsPage() {
                       </div>
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Other Income
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       <select
                         value={filters.remarks}
                         onChange={(e) => updateFilter('remarks', e.target.value)}
@@ -973,7 +985,7 @@ export default function TripsPage() {
                   </tr>
                 </thead>
                 {/* Header Row */}
-                <thead className="bg-black/40 sticky top-12">
+                <thead className="bg-black/40 sticky top-12 z-10">
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       #
@@ -1033,6 +1045,9 @@ export default function TripsPage() {
                       Income
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Other Income
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Remarks
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
@@ -1070,19 +1085,19 @@ export default function TripsPage() {
                       <td className="px-3 py-2 whitespace-nowrap text-gray-300">
                         {trip.driver || '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300 text-right" style={{textAlign: 'right'}}>
                         {trip.allowance > 0 ? formatCurrency(trip.allowance) : '-'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-gray-300">
                         {trip.reference_numbers.length > 0 ? trip.reference_numbers.join(', ') : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300 text-right" style={{textAlign: 'right'}}>
                         {trip.fuel_liters > 0 ? trip.fuel_liters.toFixed(2) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-300 text-right" style={{textAlign: 'right'}}>
                         {trip.fuel_price > 0 ? formatCurrency(trip.fuel_price) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-orange-400 font-medium">
+                      <td className="px-3 py-2 whitespace-nowrap text-orange-400 font-medium text-right" style={{textAlign: 'right'}}>
                         {trip.fuel_price > 0 ? formatCurrency(trip.fuel_price) : '-'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-gray-300">
@@ -1091,7 +1106,7 @@ export default function TripsPage() {
                       <td className="px-3 py-2 whitespace-nowrap text-gray-300">
                         {trip.front_load_reference_numbers.length > 0 ? trip.front_load_reference_numbers.join(', ') : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-blue-400 font-medium">
+                      <td className="px-3 py-2 whitespace-nowrap text-blue-400 font-medium text-right" style={{textAlign: 'right'}}>
                         {trip.front_load_amount > 0 ? formatCurrency(trip.front_load_amount) : '-'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-gray-300">
@@ -1100,25 +1115,28 @@ export default function TripsPage() {
                       <td className="px-3 py-2 whitespace-nowrap text-gray-300">
                         {trip.back_load_reference_numbers.length > 0 ? trip.back_load_reference_numbers.join(', ') : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-green-400 font-medium">
+                      <td className="px-3 py-2 whitespace-nowrap text-green-400 font-medium text-right" style={{textAlign: 'right'}}>
                         {trip.back_load_amount > 0 ? formatCurrency(trip.back_load_amount) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-purple-400 font-bold">
+                      <td className="px-3 py-2 whitespace-nowrap text-purple-400 font-bold text-right" style={{textAlign: 'right'}}>
                         {trip.front_and_back_load_amount > 0 ? formatCurrency(trip.front_and_back_load_amount) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-green-400 font-bold">
+                      <td className="px-3 py-2 whitespace-nowrap text-green-400 font-bold text-right" style={{textAlign: 'right'}}>
                         {trip.income > 0 ? formatCurrency(trip.income) : '-'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-yellow-400 font-bold text-right" style={{textAlign: 'right'}}>
+                        {trip.other_income > 0 ? formatCurrency(trip.other_income) : '-'}
                       </td>
                       <td className="px-3 py-2 text-gray-300 max-w-xs truncate">
                         {trip.remarks || '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-red-400">
+                      <td className="px-3 py-2 whitespace-nowrap text-red-400 text-right" style={{textAlign: 'right'}}>
                         {trip.insurance_expense > 0 ? formatCurrency(trip.insurance_expense) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-red-400">
+                      <td className="px-3 py-2 whitespace-nowrap text-red-400 text-right" style={{textAlign: 'right'}}>
                         {trip.repairs_maintenance_expense > 0 ? formatCurrency(trip.repairs_maintenance_expense) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-red-400">
+                      <td className="px-3 py-2 whitespace-nowrap text-red-400 text-right" style={{textAlign: 'right'}}>
                         {trip.taxes_permits_licenses_expense > 0 ? formatCurrency(trip.taxes_permits_licenses_expense) : '-'}
                       </td>
                       {/* <td className="px-3 py-2 whitespace-nowrap text-red-400">
@@ -1131,41 +1149,44 @@ export default function TripsPage() {
                     <td colSpan={6} className="px-3 py-3 text-right text-white">
                       TOTALS:
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-white">
+                    <td className="px-3 py-3 whitespace-nowrap text-white text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.allowance)}
                     </td>
                     <td className="px-3 py-3"></td>
-                    <td className="px-3 py-3 whitespace-nowrap text-white">
+                    <td className="px-3 py-3 whitespace-nowrap text-white text-right" style={{textAlign: 'right'}}>
                       {totals.fuel_liters.toFixed(2)}
                     </td>
                     <td className="px-3 py-3"></td>
-                    <td className="px-3 py-3 whitespace-nowrap text-orange-400">
+                    <td className="px-3 py-3 whitespace-nowrap text-orange-400 text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.fuel_total)}
                     </td>
                     <td className="px-3 py-3"></td>
                     <td className="px-3 py-3"></td>
-                    <td className="px-3 py-3 whitespace-nowrap text-blue-400">
+                    <td className="px-3 py-3 whitespace-nowrap text-blue-400 text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.front_load_amount)}
                     </td>
                     <td className="px-3 py-3"></td>
                     <td className="px-3 py-3"></td>
-                    <td className="px-3 py-3 whitespace-nowrap text-green-400">
+                    <td className="px-3 py-3 whitespace-nowrap text-green-400 text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.back_load_amount)}
                   </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-purple-400">
+                    <td className="px-3 py-3 whitespace-nowrap text-purple-400 text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.front_and_back_load_amount)}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-green-400">
+                    <td className="px-3 py-3 whitespace-nowrap text-green-400 text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.income)}
                     </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-yellow-400 text-right" style={{textAlign: 'right'}}>
+                      {formatCurrency(totals.other_income)}
+                    </td>
                     <td className="px-3 py-3"></td>
-                    <td className="px-3 py-3 whitespace-nowrap text-red-400">
+                    <td className="px-3 py-3 whitespace-nowrap text-red-400 text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.insurance_expense)}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-red-400">
+                    <td className="px-3 py-3 whitespace-nowrap text-red-400 text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.repairs_maintenance_expense)}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-red-400">
+                    <td className="px-3 py-3 whitespace-nowrap text-red-400 text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.taxes_permits_licenses_expense)}
                     </td>
                     {/* <td className="px-3 py-3 whitespace-nowrap text-red-400">
@@ -1176,155 +1197,6 @@ export default function TripsPage() {
               </table>
             </div>
           </div>
-
-          {/* Debug Section - Excluded Records */}
-          {tripsData.excludedRecords.length > 0 && (
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 overflow-hidden mt-6">
-              <div className="px-6 py-4 border-b border-white/10 bg-red-500/20">
-                <h2 className="text-xl font-semibold text-red-400 drop-shadow-lg">
-                  Excluded Records ({tripsData.excludedRecords.length} records)
-                </h2>
-                <p className="text-sm text-red-300 mt-1">
-                  These records are excluded from trips calculation (Beginning Balance entries)
-                </p>
-              </div>
-            
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-white/10 text-sm">
-                  <thead className="bg-black/40">
-                    <tr>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Account #
-                      </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Account Type
-                      </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Final Total
-                      </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Plate Number
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-black/20 divide-y divide-white/10">
-                    {tripsData.excludedRecords.map((record, index) => (
-                      <tr key={index} className="hover:bg-white/5">
-                        <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                          {record.account_number}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                          {record.account_type}
-                        </td>
-                        <td className="px-3 py-2 text-gray-300 max-w-xs truncate">
-                          {record.description}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-white">
-                          {formatCurrency(record.final_total)}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                          {record.date}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                          {record.plate_number || 'No Plate'}
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-          {/* Fuel Inconsistencies Section */}
-          {tripsData.fuelInconsistencies.length > 0 && (
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 overflow-hidden mt-6">
-              <div className="px-6 py-4 border-b border-white/10 bg-yellow-500/20">
-                <h2 className="text-xl font-semibold text-yellow-400 drop-shadow-lg">
-                  Fuel Inconsistencies ({tripsData.fuelInconsistencies.length} groups)
-                </h2>
-                <p className="text-sm text-yellow-300 mt-1">
-                  Records with same date and plate number but different fuel amounts/liters
-                </p>
-              </div>
-            
-              <div className="overflow-x-auto">
-                {tripsData.fuelInconsistencies.map((inconsistency, groupIndex) => (
-                  <div key={groupIndex} className="border-b border-white/10 last:border-b-0">
-                    <div className="px-6 py-3 bg-black/40">
-                      <h3 className="text-lg font-medium text-white">
-                        Trip: {inconsistency.tripKey}
-                      </h3>
-                      <p className="text-sm text-gray-300">
-                        {inconsistency.records.length} fuel records with different amounts
-                      </p>
-                    </div>
-                    
-                    <table className="min-w-full divide-y divide-white/10 text-sm">
-                      <thead className="bg-black/60">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                            Account #
-                          </th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                            Description
-                          </th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                            Quantity (Liters)
-                          </th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                            Price per Liter
-                          </th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                            Final Total
-                          </th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                            Date
-                          </th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                            Plate Number
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-black/20 divide-y divide-white/10">
-                        {inconsistency.records.map((record, recordIndex) => (
-                          <tr key={recordIndex} className="hover:bg-white/5">
-                            <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                              {record.account_number}
-                            </td>
-                            <td className="px-3 py-2 text-gray-300 max-w-xs truncate">
-                              {record.description}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                              {record.quantity || 0}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                              {record.price || 0}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap text-orange-400 font-medium">
-                              {formatCurrency(record.final_total)}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                              {record.date}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                              {record.plate_number || 'No Plate'}
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
         </div>
       </div>
     </div>

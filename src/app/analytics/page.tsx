@@ -348,7 +348,7 @@ export default function Analytics() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
             <div className="bg-slate-800 rounded-lg p-6">
               <h3 className="text-white text-lg font-semibold mb-2">Monthly Revenue</h3>
-              <div className="text-3xl font-bold text-green-500">$285,000</div>
+              <div className="text-3xl font-bold text-green-500">₱285,000</div>
               <p className="text-gray-400 text-sm mt-2">+12% from last month</p>
             </div>
 

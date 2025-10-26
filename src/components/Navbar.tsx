@@ -41,6 +41,7 @@ const Navbar = () => {
     { name: 'Drivers', href: '/drivers' },
     { name: 'Trips', href: '/trips' },
     { name: 'Accounts', href: '/accounts' },
+    { name: 'Per Truck', href: '/accounts-detail' },
   ];
 
   return (
