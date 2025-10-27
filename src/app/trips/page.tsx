@@ -835,9 +835,6 @@ export default function TripsPage() {
                       </select>
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                      Front Load Ref#
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       <div className="flex space-x-1">
                         <input
                           type="number"
@@ -868,9 +865,6 @@ export default function TripsPage() {
                           </option>
                         ))}
                       </select>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                      Back Load Ref#
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       <div className="flex space-x-1">
@@ -1024,17 +1018,11 @@ export default function TripsPage() {
                       Front Load
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                      Front Load Ref#
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Front Load Amt
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Back Load
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                      Back Load Ref#
-                  </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Back Load Amt
                     </th>
@@ -1103,17 +1091,11 @@ export default function TripsPage() {
                       <td className="px-3 py-2 whitespace-nowrap text-gray-300">
                         {trip.front_load || '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                        {trip.front_load_reference_numbers.length > 0 ? trip.front_load_reference_numbers.join(', ') : '-'}
-                      </td>
                       <td className="px-3 py-2 whitespace-nowrap text-blue-400 font-medium text-right" style={{textAlign: 'right'}}>
                         {trip.front_load_amount > 0 ? formatCurrency(trip.front_load_amount) : '-'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-gray-300">
                         {trip.back_load || '-'}
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
-                        {trip.back_load_reference_numbers.length > 0 ? trip.back_load_reference_numbers.join(', ') : '-'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-green-400 font-medium text-right" style={{textAlign: 'right'}}>
                         {trip.back_load_amount > 0 ? formatCurrency(trip.back_load_amount) : '-'}
@@ -1152,24 +1134,22 @@ export default function TripsPage() {
                     <td className="px-3 py-3 whitespace-nowrap text-white text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.allowance)}
                     </td>
-                    <td className="px-3 py-3"></td>
                     <td className="px-3 py-3 whitespace-nowrap text-white text-right" style={{textAlign: 'right'}}>
                       {totals.fuel_liters.toFixed(2)}
                     </td>
                     <td className="px-3 py-3"></td>
+
                     <td className="px-3 py-3 whitespace-nowrap text-orange-400 text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.fuel_total)}
                     </td>
-                    <td className="px-3 py-3"></td>
                     <td className="px-3 py-3"></td>
                     <td className="px-3 py-3 whitespace-nowrap text-blue-400 text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.front_load_amount)}
                     </td>
                     <td className="px-3 py-3"></td>
-                    <td className="px-3 py-3"></td>
                     <td className="px-3 py-3 whitespace-nowrap text-green-400 text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.back_load_amount)}
-                  </td>
+                    </td>
                     <td className="px-3 py-3 whitespace-nowrap text-purple-400 text-right" style={{textAlign: 'right'}}>
                       {formatCurrency(totals.front_and_back_load_amount)}
                     </td>
@@ -1202,5 +1182,4 @@ export default function TripsPage() {
     </div>
   );
 }
-
 

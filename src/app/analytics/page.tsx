@@ -10,6 +10,7 @@ export default function Analytics() {
   const [userEmail, setUserEmail] = useState('');
   const [apiData, setApiData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // Default to current month (YYYY-MM)
   const router = useRouter();
 
   useEffect(() => {
@@ -55,6 +56,58 @@ export default function Analytics() {
       </div>
     );
   }
+
+  // Calculate monthly revenue and expenses from trucking data
+  const calculateMonthlyData = () => {
+    if (!apiData) return { monthlyRevenue: 0, monthlyExpenses: 0 };
+
+    let accounts = [];
+    if (apiData.accounts) {
+      accounts = apiData.accounts;
+    } else if (Array.isArray(apiData)) {
+      accounts = apiData;
+    } else if (apiData.data && Array.isArray(apiData.data)) {
+      accounts = apiData.data;
+    }
+
+    if (accounts.length === 0) return { monthlyRevenue: 0, monthlyExpenses: 0 };
+
+    // Filter accounts by selected month
+    const filteredAccounts = accounts.filter((account: any) => {
+      if (!account.date) return false;
+      const accountDate = new Date(account.date);
+      const accountMonth = accountDate.toISOString().slice(0, 7);
+      return accountMonth === selectedMonth;
+    });
+
+    let monthlyRevenue = 0;
+    let monthlyExpenses = 0;
+
+    filteredAccounts.forEach((account: any) => {
+      const finalTotal = parseFloat(account.final_total?.toString() || '0');
+      const accountType = account.account_type?.toLowerCase() || '';
+
+      if (accountType.includes('hauling income')) {
+        // Check if it's Rice Hull Ton (other income) - exclude from regular revenue
+        if (!account.remarks?.toLowerCase().includes('rice hull ton')) {
+          monthlyRevenue += finalTotal;
+        }
+      } else if (
+        accountType.includes('fuel') ||
+        accountType.includes('driver\'s allowance') ||
+        accountType.includes('insurance') ||
+        accountType.includes('repair') ||
+        accountType.includes('maintenance') ||
+        accountType.includes('tax') ||
+        accountType.includes('permit') ||
+        accountType.includes('license')
+      ) {
+        monthlyExpenses += finalTotal;
+      }
+    });
+
+    return { monthlyRevenue, monthlyExpenses };
+  };
 
   // Calculate data from API or use mock data
   const calculateData = () => {
@@ -233,14 +286,30 @@ export default function Analytics() {
 
             {/* Total Trucks Metric */}
             <div className="bg-slate-800 rounded-lg p-6">
-              <h3 className="text-white text-lg font-semibold mb-2">Total Trucks</h3>
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="text-white text-lg font-semibold">Total Trucks</h3>
+                <Link
+                  href="/accounts-detail"
+                  className="px-3 py-1 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white text-sm rounded-md transition-all duration-200"
+                >
+                  See Details
+                </Link>
+              </div>
               <div className="text-4xl font-bold text-white">{data.totalTrucks}</div>
               <p className="text-gray-400 text-sm mt-2">Active fleet</p>
             </div>
 
             {/* Total Drivers Metric */}
             <div className="bg-slate-800 rounded-lg p-6">
-              <h3 className="text-white text-lg font-semibold mb-2">Total Drivers</h3>
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="text-white text-lg font-semibold">Total Drivers</h3>
+                <Link
+                  href="/drivers"
+                  className="px-3 py-1 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white text-sm rounded-md transition-all duration-200"
+                >
+                  See Details
+                </Link>
+              </div>
               <div className="text-4xl font-bold text-orange-500">{data.totalDrivers}</div>
               <p className="text-gray-400 text-sm mt-2">Registered drivers</p>
             </div>
@@ -250,7 +319,15 @@ export default function Analytics() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Account Types Pie Chart */}
             <div className="bg-slate-800 rounded-lg p-6">
-              <h3 className="text-white text-xl font-semibold mb-4">Accounts Entries</h3>
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-white text-xl font-semibold">Accounts Entries</h3>
+                <Link
+                  href="/accounts"
+                  className="px-3 py-1 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white text-sm rounded-md transition-all duration-200"
+                >
+                  See Details
+                </Link>
+              </div>
               <div className="flex items-center justify-center">
                 <div className="relative w-64 h-64">
                   {/* Pie Chart SVG */}
@@ -328,40 +405,80 @@ export default function Analytics() {
               </div>
             </div>
 
-            {/* Active Trucks List */}
+            {/* Monthly Financial Cards */}
+            <div className="bg-slate-800 rounded-lg p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-white text-xl font-semibold">Monthly Financials</h3>
+                <Link
+                  href="/revenue"
+                  className="px-3 py-1 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white text-sm rounded-md transition-all duration-200"
+                >
+                  See Details
+                </Link>
+              </div>
+              
+              {/* Month Filter */}
+              <div className="mb-4 flex items-center space-x-4">
+                <label htmlFor="month-filter" className="text-white font-medium text-sm">
+                  Filter by Month:
+                </label>
+                <input
+                  type="month"
+                  id="month-filter"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-3 py-1 text-sm border border-white/20 rounded-md bg-black/40 text-white hover:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-700 rounded-lg">
+                  <h4 className="text-white text-sm font-semibold mb-2">Monthly Revenue</h4>
+                  <div className="text-2xl font-bold text-green-500">
+                    ₱{calculateMonthlyData().monthlyRevenue.toLocaleString()}
+                  </div>
+                  <p className="text-gray-400 text-xs mt-1">
+                    {new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-slate-700 rounded-lg">
+                  <h4 className="text-white text-sm font-semibold mb-2">Monthly Expenses</h4>
+                  <div className="text-2xl font-bold text-red-500">
+                    ₱{calculateMonthlyData().monthlyExpenses.toLocaleString()}
+                  </div>
+                  <p className="text-gray-400 text-xs mt-1">
+                    {new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-slate-700 rounded-lg">
+                  <h4 className="text-white text-sm font-semibold mb-2">Net Profit</h4>
+                  <div className={`text-2xl font-bold ${calculateMonthlyData().monthlyRevenue - calculateMonthlyData().monthlyExpenses >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    ₱{(calculateMonthlyData().monthlyRevenue - calculateMonthlyData().monthlyExpenses).toLocaleString()}
+                  </div>
+                  <p className="text-gray-400 text-xs mt-1">
+                    {new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Trucks Section */}
+          <div className="mt-8">
             <div className="bg-slate-800 rounded-lg p-6">
               <h3 className="text-white text-xl font-semibold mb-4">Active Trucks</h3>
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {activeTrucks.map((truck, index) => (
-                  <div key={index} className="flex items-center space-x-4 p-3 bg-slate-700 rounded-lg">
+                  <div key={index} className="flex flex-col items-center space-y-3 p-4 bg-slate-700 rounded-lg">
                     <img src="/images/truck1.png" alt="Truck" className="w-16 h-16" />
-                    <div className="flex-1">
+                    <div className="text-center">
                       <div className="text-white font-medium text-lg">{truck.plate}</div>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-
-          {/* Additional Metrics Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-            <div className="bg-slate-800 rounded-lg p-6">
-              <h3 className="text-white text-lg font-semibold mb-2">Monthly Revenue</h3>
-              <div className="text-3xl font-bold text-green-500">₱285,000</div>
-              <p className="text-gray-400 text-sm mt-2">+12% from last month</p>
-            </div>
-
-            <div className="bg-slate-800 rounded-lg p-6">
-              <h3 className="text-white text-lg font-semibold mb-2">Pending Deliveries</h3>
-              <div className="text-3xl font-bold text-yellow-500">18</div>
-              <p className="text-gray-400 text-sm mt-2">Awaiting pickup</p>
-            </div>
-
-            <div className="bg-slate-800 rounded-lg p-6">
-              <h3 className="text-white text-lg font-semibold mb-2">Completed Trips</h3>
-              <div className="text-3xl font-bold text-blue-500">342</div>
-              <p className="text-gray-400 text-sm mt-2">This month</p>
             </div>
           </div>
         </div>
