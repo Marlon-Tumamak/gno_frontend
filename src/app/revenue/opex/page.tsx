@@ -48,7 +48,8 @@ export default function OPEXPage() {
   const fetchOPEXData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/api/v1/revenue/opex/');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiUrl}/api/v1/revenue/opex/`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
