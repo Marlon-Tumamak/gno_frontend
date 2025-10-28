@@ -45,15 +45,17 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className="bg-black/60 backdrop-blur-sm shadow-2xl border-b border-white/10 fixed w-full z-50">
+    <nav className="bg-black border-b border-white/10 fixed w-full z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex items-center justify-between h-16">
           {/* Logo/Brand */}
-          <Link href="/dashboard" className="text-white text-xl font-bold drop-shadow-lg hover:text-orange-400 transition-colors duration-200">
-            Myrrh Logistics
-          </Link>
+          <div className="flex-shrink-0">
+            <Link href="/dashboard" className="text-white text-xl font-bold drop-shadow-lg hover:text-orange-400 transition-colors duration-200">
+              Myrrh Logistics
+            </Link>
+          </div>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Navigation - Centered */}
           <div className="hidden md:flex items-center space-x-8">
             {navLinks.map((link) => (
               <Link
@@ -108,7 +110,7 @@ const Navbar = () => {
           </div>
 
           {/* Desktop Logout Button */}
-          <div className="hidden md:block">
+          <div className="hidden md:block flex-shrink-0">
             <button
               onClick={handleLogout}
               className="bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white px-6 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-200 flex items-center space-x-2"

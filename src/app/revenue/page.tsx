@@ -304,7 +304,7 @@ export default function RevenuePage() {
                 <p className="text-gray-300">{error}</p>
                 <button
                   onClick={fetchRevenueData}
-                  className="mt-4 px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200"
+                  className="mt-4 px-4 py-2 bg-gradient-to-r bg-orange-600 hover:bg-black text-white rounded-md transition-all duration-200"
                 >
                   Retry
                 </button>
@@ -339,260 +339,200 @@ export default function RevenuePage() {
                        revenueData.expense_streams.total_opex;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <style jsx>{`
+        .scrollbar-thin {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+          display: none;
+        }
+        .elevated-box {
+          box-shadow: 
+            0 10px 25px -5px rgba(0, 0, 0, 0.1),
+            0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          transform: translateY(-2px);
+          transition: all 0.3s ease;
+        }
+        .elevated-box:hover {
+          box-shadow: 
+            0 20px 40px -10px rgba(0, 0, 0, 0.15),
+            0 8px 12px -4px rgba(0, 0, 0, 0.08);
+          transform: translateY(-4px);
+        }
+        .gradient-card {
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .metric-card {
+          background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+          border: 1px solid rgba(226, 232, 240, 0.6);
+          transition: all 0.3s ease;
+        }
+        .metric-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        .glass-effect {
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+      `}</style>
       <Navbar />
       <div className="pt-16 p-8">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="bg-black/60 backdrop-blur-sm rounded-lg p-8 shadow-2xl border border-white/10 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Revenue Streams</h1>
-                <p className="text-gray-300">Financial overview of revenue and expense streams</p>
-              </div>
-              {/* <div className="flex space-x-4">
-                <Link
-                  href="/dashboard"
-                  className="px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200"
-                >
-                  Back to Dashboard
-                </Link>
-                <button
-                  onClick={fetchRevenueData}
-                  className="px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200"
-                >
-                  Refresh Data
-                </button>
-              </div> */}
+          {/* Header Section */}
+          <div className="mb-8">
+            <div className="glass-effect rounded-2xl p-8 elevated-box">
+              <h1 className="text-4xl font-bold text-gray-800 mb-3">Revenue Streams</h1>
+              <p className="text-gray-600 text-lg">Financial overview of revenue and expense streams</p>
             </div>
           </div>
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-6 shadow-2xl border border-white/10">
-              <div className="text-sm font-medium text-gray-300">Total Revenue</div>
-              <div className="text-2xl font-bold text-green-400">
+          {/* Financial Overview Cards */}
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Total Revenue Card */}
+            <div className="gradient-card rounded-2xl p-8 elevated-box">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">Total Revenue</h3>
+                  <p className="text-gray-600">All revenue streams combined</p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                  <span className="text-white text-xl">💰</span>
+                </div>
+              </div>
+              <div className="text-4xl font-bold text-green-600 mb-2">
                 {formatCurrency(totalRevenue)}
               </div>
+              <div className="text-gray-600 text-sm">Current period</div>
             </div>
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-6 shadow-2xl border border-white/10">
-              <div className="text-sm font-medium text-gray-300">Total Expenses</div>
-              <div className="text-2xl font-bold text-red-400">
+
+            {/* Total Expenses Card */}
+            <div className="gradient-card rounded-2xl p-8 elevated-box">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">Total Expenses</h3>
+                  <p className="text-gray-600">All expense streams combined</p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
+                  <span className="text-white text-xl">💸</span>
+                </div>
+              </div>
+              <div className="text-4xl font-bold text-red-600 mb-2">
                 {formatCurrency(totalExpenses)}
               </div>
+              <div className="text-gray-600 text-sm">Current period</div>
             </div>
           </div>
 
-          {/* Revenue and Expense Tables with Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Revenue and Expense Streams */}
+          <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Revenue Streams */}
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 overflow-hidden">
-              <div className="px-6 py-4 bg-green-500/20 border-b border-green-500/30">
-                <h2 className="text-xl font-semibold text-green-400 drop-shadow-lg">Revenue Streams</h2>
+            <div className="gradient-card rounded-2xl p-8 elevated-box">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">Revenue Streams</h3>
+                  <p className="text-gray-600">Breakdown of revenue sources</p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                  <span className="text-white text-xl">📈</span>
+                </div>
               </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-300">Frontload Amount</span>
-                    <span className="font-semibold text-green-400">
-                      {formatCurrency(revenueData.revenue_streams.front_load_amount)}
-                    </span>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">F</span>
+                    </div>
+                    <div>
+                      <div className="text-gray-800 font-semibold">Frontload Amount</div>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-300">Backload Amount</span>
-                    <span className="font-semibold text-green-400">
-                      {formatCurrency(revenueData.revenue_streams.back_load_amount)}
-                    </span>
+                  <div className="text-green-600 font-bold text-lg">
+                    {formatCurrency(revenueData.revenue_streams.front_load_amount)}
                   </div>
                 </div>
-              
-                {/* Revenue Pie Chart */}
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold text-green-400 mb-4 drop-shadow-lg">Revenue Streams</h3>
-                  <div className="flex items-center justify-center">
-                    <div className="w-48 h-48 relative">
-                      <svg className="w-48 h-48 transform -rotate-90" viewBox="0 0 100 100">
-                        {/* Backload (76%) */}
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="40"
-                          fill="none"
-                          stroke="#dc2626"
-                          strokeWidth="20"
-                          strokeDasharray={`${76 * 2.51} ${100 * 2.51}`}
-                          className="animate-pulse"
-                        />
-                        {/* Frontload (24%) */}
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="40"
-                          fill="none"
-                          stroke="#2563eb"
-                          strokeWidth="20"
-                          strokeDasharray={`${24 * 2.51} ${100 * 2.51}`}
-                          strokeDashoffset={`-${76 * 2.51}`}
-                          className="animate-pulse"
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-2xl font-bold text-white">
-                          {((revenueData.revenue_streams.front_load_amount / totalRevenue) * 100).toFixed(1)}%
-                        </span>
-                      </div>
+
+                <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">B</span>
+                    </div>
+                    <div>
+                      <div className="text-gray-800 font-semibold">Backload Amount</div>
                     </div>
                   </div>
-                  <div className="flex justify-center space-x-6 mt-4">
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
-                      <span className="text-sm text-gray-300">Frontload ({(revenueData.revenue_streams.front_load_amount / totalRevenue * 100).toFixed(1)}%)</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
-                      <span className="text-sm text-gray-300">Backload ({(revenueData.revenue_streams.back_load_amount / totalRevenue * 100).toFixed(1)}%)</span>
-                    </div>
+                  <div className="text-green-600 font-bold text-lg">
+                    {formatCurrency(revenueData.revenue_streams.back_load_amount)}
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Expense Streams */}
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 overflow-hidden">
-              <div className="px-6 py-4 bg-red-500/20 border-b border-red-500/30">
-                <h2 className="text-xl font-semibold text-red-400 drop-shadow-lg">Expense Streams</h2>
+            <div className="gradient-card rounded-2xl p-8 elevated-box">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">Expense Streams</h3>
+                  <p className="text-gray-600">Breakdown of expense categories</p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
+                  <span className="text-white text-xl">📉</span>
+                </div>
               </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-300">Allowance</span>
-                    <span className="font-semibold text-red-400">
-                      {formatCurrency(revenueData.expense_streams.allowance)}
-                    </span>
-                  </div>
-                  {/* <div className="flex justify-between items-center">
-                    <span className="text-gray-300">Add Allowance</span>
-                    <span className="font-semibold text-red-400">
-                      {formatCurrency(revenueData.expense_streams.add_allowance)}
-                    </span>
-                  </div> */}
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-300">Fuel Amount</span>
-                    <span className="font-semibold text-red-400">
-                      {formatCurrency(revenueData.expense_streams.fuel_amount)}
-                    </span>
-                  </div>
-                  {/* <div className="flex justify-between items-center">
-                    <span className="text-gray-300">Add Fuel Amount</span>
-                    <span className="font-semibold text-red-400">
-                      {formatCurrency(revenueData.expense_streams.add_fuel_amount)}
-                    </span>
-                  </div> */}
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-300">Total OPEX</span>
-                    <div className="flex items-center space-x-3">
-                      <span className="font-semibold text-red-400">
-                        {formatCurrency(revenueData.expense_streams.total_opex)}
-                      </span>
-                      <Link
-                        href="/revenue/opex"
-                        className="px-3 py-1 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white text-sm rounded-md transition-all duration-200"
-                      >
-                        See Details
-                      </Link>
-                    </div>
-                  </div>
-                </div>
               
-                {/* Expense Pie Chart */}
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold text-red-400 mb-4 drop-shadow-lg">Expense Streams</h3>
-                <div className="flex items-center justify-center">
-                  <div className="w-48 h-48 relative">
-                    <svg className="w-48 h-48 transform -rotate-90" viewBox="0 0 100 100">
-                      {/* Fuel Amount (largest) */}
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        fill="none"
-                        stroke="#eab308"
-                        strokeWidth="20"
-                        strokeDasharray={`${(revenueData.expense_streams.fuel_amount / totalExpenses) * 251} 251`}
-                        className="animate-pulse"
-                      />
-                      {/* Allowance */}
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        fill="none"
-                        stroke="#2563eb"
-                        strokeWidth="20"
-                        strokeDasharray={`${(revenueData.expense_streams.allowance / totalExpenses) * 251} 251`}
-                        strokeDashoffset={`-${(revenueData.expense_streams.fuel_amount / totalExpenses) * 251}`}
-                        className="animate-pulse"
-                      />
-                      {/* Add Allowance - Commented out */}
-                      {/* <circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        fill="none"
-                        stroke="#dc2626"
-                        strokeWidth="20"
-                        strokeDasharray={`${(revenueData.expense_streams.add_allowance / totalExpenses) * 251} 251`}
-                        strokeDashoffset={`-${((revenueData.expense_streams.fuel_amount + revenueData.expense_streams.allowance) / totalExpenses) * 251}`}
-                        className="animate-pulse"
-                      /> */}
-                      {/* Add Fuel Amount - Commented out */}
-                      {/* <circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        fill="none"
-                        stroke="#16a34a"
-                        strokeWidth="20"
-                        strokeDasharray={`${(revenueData.expense_streams.add_fuel_amount / totalExpenses) * 251} 251`}
-                        strokeDashoffset={`-${((revenueData.expense_streams.fuel_amount + revenueData.expense_streams.allowance + revenueData.expense_streams.add_allowance) / totalExpenses) * 251}`}
-                        className="animate-pulse"
-                      /> */}
-                      {/* Total OPEX */}
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        fill="none"
-                        stroke="#ea580c"
-                        strokeWidth="20"
-                        strokeDasharray={`${(revenueData.expense_streams.total_opex / totalExpenses) * 251} 251`}
-                        strokeDashoffset={`-${((revenueData.expense_streams.fuel_amount + revenueData.expense_streams.allowance) / totalExpenses) * 251}`}
-                        className="animate-pulse"
-                      />
-                    </svg>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">A</span>
+                    </div>
+                    <div>
+                      <div className="text-gray-800 font-semibold">Allowance</div>
+                    </div>
+                  </div>
+                  <div className="text-red-600 font-bold text-lg">
+                    {formatCurrency(revenueData.expense_streams.allowance)}
                   </div>
                 </div>
-                  <div className="grid grid-cols-2 gap-2 mt-4 text-xs">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                      <span className="text-gray-300">Allowance</span>
+
+                <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">F</span>
                     </div>
-                    {/* <div className="flex items-center">
-                      <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                      <span className="text-gray-300">Add Allowance</span>
-                    </div> */}
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
-                      <span className="text-gray-300">Fuel Amount</span>
+                    <div>
+                      <div className="text-gray-800 font-semibold">Fuel Amount</div>
                     </div>
-                    {/* <div className="flex items-center">
-                      <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                      <span className="text-gray-300">Add Fuel</span>
-                    </div> */}
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
-                      <span className="text-gray-300">Total OPEX</span>
+                  </div>
+                  <div className="text-red-600 font-bold text-lg">
+                    {formatCurrency(revenueData.expense_streams.fuel_amount)}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">O</span>
                     </div>
+                    <div>
+                      <div className="text-gray-800 font-semibold">Total OPEX</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-red-600 font-bold text-lg">
+                      {formatCurrency(revenueData.expense_streams.total_opex)}
+                    </div>
+                    <Link
+                      href="/revenue/opex"
+                      className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-black hover:to-gray-800 text-white text-sm rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
+                    >
+                      See Details
+                    </Link>
                   </div>
                 </div>
               </div>

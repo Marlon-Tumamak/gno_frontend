@@ -134,202 +134,299 @@ export default function AccountsPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <style jsx>{`
+        .scrollbar-thin {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+          display: none;
+        }
+        .elevated-box {
+          box-shadow: 
+            0 10px 25px -5px rgba(0, 0, 0, 0.1),
+            0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          transform: translateY(-2px);
+          transition: all 0.3s ease;
+        }
+        .elevated-box:hover {
+          box-shadow: 
+            0 20px 40px -10px rgba(0, 0, 0, 0.15),
+            0 8px 12px -4px rgba(0, 0, 0, 0.08);
+          transform: translateY(-4px);
+        }
+        .gradient-card {
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .metric-card {
+          background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+          border: 1px solid rgba(226, 232, 240, 0.6);
+          transition: all 0.3s ease;
+        }
+        .metric-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        .glass-effect {
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+      `}</style>
       <Navbar />
       <div className="pt-16 p-8">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="bg-black/60 backdrop-blur-sm rounded-lg p-8 shadow-2xl border border-white/10 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Accounts Summary</h1>
-                <p className="text-gray-300">Overview of all account types with financial totals</p>
-              </div>
-              <div className="flex space-x-4">
-                {/* <Link
-                  href="/dashboard"
-                  className="px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200"
-                >
-                  Back to Dashboard
-                </Link> */}
+          {/* Header Section */}
+          <div className="mb-8">
+            <div className="glass-effect rounded-2xl p-8 elevated-box">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-4xl font-bold text-gray-800 mb-3">Accounts Summary</h1>
+                  <p className="text-gray-600 text-lg">Overview of all account types with financial totals</p>
+                </div>
                 <Link
                   href="/accounts-detail"
-                  className="px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200"
+                  className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-black hover:to-gray-800 text-white text-sm rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
                   View Details
                 </Link>
-                {/* <button
-                  onClick={fetchAccountsData}
-                  className="px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200"
-                >
-                  Refresh Data
-                </button> */}
               </div>
             </div>
           </div>
 
-          {/* Overall Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-6 shadow-2xl border border-white/10">
-              <div className="text-sm font-medium text-gray-300">Total Accounts</div>
-              <div className="text-2xl font-bold text-white">{accountsData.summary.total_count}</div>
+          {/* Accounts Overview Cards */}
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+            {/* Total Accounts Card */}
+            <div className="gradient-card rounded-2xl p-6 elevated-box">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-1">Total Accounts</h3>
+                  <p className="text-gray-600 text-sm">All account entries</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                  <span className="text-white text-lg">📊</span>
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-blue-600">
+                {accountsData.summary.total_count}
+              </div>
             </div>
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-6 shadow-2xl border border-white/10">
-              <div className="text-sm font-medium text-gray-300">Total Debit</div>
-              <div className="text-2xl font-bold text-red-400">
+
+            {/* Total Debit Card */}
+            <div className="gradient-card rounded-2xl p-6 elevated-box">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-1">Total Debit</h3>
+                  <p className="text-gray-600 text-sm">Debit amounts</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
+                  <span className="text-white text-lg">📉</span>
+                </div>
+              </div>
+              <div className="text-2xl font-bold text-red-600">
                 {formatCurrency(accountsData.summary.total_debit)}
               </div>
             </div>
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-6 shadow-2xl border border-white/10">
-              <div className="text-sm font-medium text-gray-300">Total Credit</div>
-              <div className="text-2xl font-bold text-green-400">
+
+            {/* Total Credit Card */}
+            <div className="gradient-card rounded-2xl p-6 elevated-box">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-1">Total Credit</h3>
+                  <p className="text-gray-600 text-sm">Credit amounts</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                  <span className="text-white text-lg">📈</span>
+                </div>
+              </div>
+              <div className="text-2xl font-bold text-green-600">
                 {formatCurrency(accountsData.summary.total_credit)}
               </div>
             </div>
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-6 shadow-2xl border border-white/10">
-              <div className="text-sm font-medium text-gray-300">Total Final</div>
-              <div className="text-2xl font-bold text-blue-400">
+
+            {/* Total Final Card */}
+            <div className="gradient-card rounded-2xl p-6 elevated-box">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-1">Total Final</h3>
+                  <p className="text-gray-600 text-sm">Final totals</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center">
+                  <span className="text-white text-lg">💰</span>
+                </div>
+              </div>
+              <div className="text-2xl font-bold text-indigo-600">
                 {formatCurrency(accountsData.summary.total_final)}
               </div>
             </div>
           </div>
 
-          {/* Account Type Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Object.entries(accountsData.accounts).map(([key, account]) => (
-              <div key={key} className={`bg-black/60 backdrop-blur-sm rounded-lg p-6 shadow-2xl border-2 ${getColorClasses(account.color)}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-white drop-shadow-lg">{account.name}</h3>
-                  <span className="text-sm font-medium bg-black/40 backdrop-blur-sm px-2 py-1 rounded text-gray-300">
-                    {account.count} entries
-                  </span>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-300">Total Debit:</span>
-                    <span className="font-bold text-red-400">
-                      {formatCurrency(account.total_debit)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-300">Total Credit:</span>
-                    <span className="font-bold text-green-400">
-                      {formatCurrency(account.total_credit)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center border-t border-white/10 pt-2">
-                    <span className="text-sm font-bold text-white">Final Total:</span>
-                    <span className="font-bold text-lg text-white">
-                      {formatCurrency(account.total_final)}
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Progress bar showing relative size */}
-                <div className="mt-4">
-                  <div className="w-full bg-black/40 backdrop-blur-sm rounded-full h-2">
-                    <div 
-                      className="bg-current h-2 rounded-full transition-all duration-500"
-                      style={{ 
-                        width: `${Math.min(100, (account.total_final / Math.max(...Object.values(accountsData.accounts).map(a => a.total_final))) * 100)}%` 
-                      }}
-                    ></div>
-                  </div>
-                </div>
+          {/* Account Type Breakdown */}
+          <div className="gradient-card rounded-2xl p-8 elevated-box">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">Account Type Breakdown</h3>
+                <p className="text-gray-600">Detailed financial breakdown by account type</p>
               </div>
-            ))}
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center">
+                <span className="text-white text-xl">📋</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Object.entries(accountsData.accounts).map(([key, account]) => (
+                <div key={key} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-semibold text-gray-800">{account.name}</h4>
+                      <span className="text-sm font-medium bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
+                        {account.count} entries
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-600">Total Debit:</span>
+                        <span className="font-bold text-red-600">
+                          {formatCurrency(account.total_debit)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-600">Total Credit:</span>
+                        <span className="font-bold text-green-600">
+                          {formatCurrency(account.total_credit)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center border-t border-gray-200 pt-3">
+                        <span className="text-sm font-bold text-gray-800">Final Total:</span>
+                        <span className="font-bold text-lg text-gray-900">
+                          {formatCurrency(account.total_final)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Progress bar showing relative size */}
+                    <div className="mt-4">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-500 ${
+                            account.color === 'blue' ? 'bg-blue-500' :
+                            account.color === 'green' ? 'bg-green-500' :
+                            account.color === 'orange' ? 'bg-orange-500' :
+                            account.color === 'purple' ? 'bg-purple-500' :
+                            account.color === 'red' ? 'bg-red-500' :
+                            account.color === 'yellow' ? 'bg-yellow-500' :
+                            'bg-indigo-500'
+                          }`}
+                          style={{ 
+                            width: `${Math.min(100, (account.total_final / Math.max(...Object.values(accountsData.accounts).map(a => a.total_final))) * 100)}%` 
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Detailed Table View */}
-          <div className="mt-8 bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 overflow-hidden">
-            <div className="px-6 py-4 border-b border-white/10 bg-black/40">
-              <h2 className="text-xl font-semibold text-white drop-shadow-lg">Detailed Summary</h2>
+          {/* Detailed Summary */}
+          <div className="gradient-card rounded-2xl p-8 elevated-box">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">Detailed Summary</h3>
+                <p className="text-gray-600">Complete breakdown of all account types</p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center">
+                <span className="text-white text-xl">📊</span>
+              </div>
             </div>
             
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-white/10">
-                <thead className="bg-black/40">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Account Type
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Entries
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Total Debit
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Total Credit
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Final Total
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-black/20 divide-y divide-white/10">
+                <tbody className="bg-white divide-y divide-gray-200">
                   {Object.entries(accountsData.accounts).map(([key, account]) => (
-                    <tr key={key} className="hover:bg-white/5">
+                    <tr key={key} className="hover:bg-gray-50 transition-colors duration-200">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-white">
+                        <div className="text-sm font-semibold text-gray-900">
                           {account.name}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-300">
+                        <div className="text-sm text-gray-700">
                           {account.count}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-red-400 font-medium">
+                        <div className="text-sm text-red-600 font-medium">
                           {formatCurrency(account.total_debit)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-green-400 font-medium">
+                        <div className="text-sm text-green-600 font-medium">
                           {formatCurrency(account.total_credit)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-bold text-white">
+                        <div className="text-sm font-bold text-gray-900">
                           {formatCurrency(account.total_final)}
                         </div>
                       </td>
                     </tr>
                   ))}
                   {/* Total Row */}
-                  <tr className="bg-black/40 font-bold">
+                  <tr className="bg-gray-100 font-bold">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-white">TOTAL</div>
+                      <div className="text-sm font-bold text-gray-900">TOTAL</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-white">
+                      <div className="text-sm font-bold text-gray-900">
                         {accountsData.summary.total_count}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-red-400">
+                      <div className="text-sm font-bold text-red-600">
                         {formatCurrency(accountsData.summary.total_debit)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-green-400">
+                      <div className="text-sm font-bold text-green-600">
                         {formatCurrency(accountsData.summary.total_credit)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-blue-400">
+                      <div className="text-sm font-bold text-indigo-600">
                         {formatCurrency(accountsData.summary.total_final)}
                       </div>
                     </td>
                   </tr>
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
         </div>
       </div>
     </div>

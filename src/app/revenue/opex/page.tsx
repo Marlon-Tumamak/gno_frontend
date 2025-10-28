@@ -189,7 +189,7 @@ export default function OPEXPage() {
                 <p className="text-gray-300 mb-4">{error}</p>
                 <button 
                   onClick={fetchOPEXData}
-                  className="bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white px-4 py-2 rounded transition-all duration-200"
+                  className="bg-gradient-to-r from-black bg-orange-600 hover:bg-black text-white px-4 py-2 rounded transition-all duration-200"
                 >
                   Try Again
                 </button>
@@ -219,145 +219,196 @@ export default function OPEXPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <style jsx>{`
+        .scrollbar-thin {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+          display: none;
+        }
+        .elevated-box {
+          box-shadow: 
+            0 10px 25px -5px rgba(0, 0, 0, 0.1),
+            0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          transform: translateY(-2px);
+          transition: all 0.3s ease;
+        }
+        .elevated-box:hover {
+          box-shadow: 
+            0 20px 40px -10px rgba(0, 0, 0, 0.15),
+            0 8px 12px -4px rgba(0, 0, 0, 0.08);
+          transform: translateY(-4px);
+        }
+        .gradient-card {
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .metric-card {
+          background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+          border: 1px solid rgba(226, 232, 240, 0.6);
+          transition: all 0.3s ease;
+        }
+        .metric-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        .glass-effect {
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+      `}</style>
       <Navbar />
       <div className="pt-16 p-8">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
+          {/* Header Section */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white drop-shadow-lg">Operating Expenses (OPEX)</h1>
-            <p className="mt-2 text-gray-300">Breakdown of expenses by account type</p>
+            <div className="glass-effect rounded-2xl p-8 elevated-box">
+              <h1 className="text-4xl font-bold text-gray-800 mb-3">Operating Expenses (OPEX)</h1>
+              <p className="text-gray-600 text-lg">Breakdown of expenses by account type</p>
+            </div>
           </div>
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
-                    <span className="text-blue-400 font-semibold">₱</span>
-                  </div>
+          {/* OPEX Overview Cards */}
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Total OPEX Card */}
+            <div className="gradient-card rounded-2xl p-8 elevated-box">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">Total OPEX</h3>
+                  <p className="text-gray-600">All operating expenses</p>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-300">Total OPEX</p>
-                  <p className="text-2xl font-semibold text-white">
-                    {formatCurrency(opexData.total_opex)}
-                  </p>
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
+                  <span className="text-white text-xl">💰</span>
                 </div>
               </div>
+              <div className="text-4xl font-bold text-red-600 mb-2">
+                {formatCurrency(opexData.total_opex)}
+              </div>
+              <div className="text-gray-600 text-sm">Current period</div>
             </div>
 
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
-                    <span className="text-green-400 font-semibold">📊</span>
-                  </div>
+            {/* Categories Card */}
+            <div className="gradient-card rounded-2xl p-8 elevated-box">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">Categories</h3>
+                  <p className="text-gray-600">Expense categories</p>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-300">Categories</p>
-                  <p className="text-2xl font-semibold text-white">
-                    {opexData.summary.total_categories}
-                  </p>
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                  <span className="text-white text-xl">📊</span>
                 </div>
               </div>
+              <div className="text-4xl font-bold text-blue-600 mb-2">
+                {opexData.summary.total_categories}
+              </div>
+              <div className="text-gray-600 text-sm">Active categories</div>
             </div>
 
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center">
-                    <span className="text-yellow-400 font-semibold">📈</span>
-                  </div>
+            {/* Largest Category Card */}
+            <div className="gradient-card rounded-2xl p-8 elevated-box">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">Largest Category</h3>
+                  <p className="text-gray-600">Highest expense category</p>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-300">Largest Category</p>
-                  <p className="text-lg font-semibold text-white">
-                    {opexData.summary.largest_category?.account_type || 'N/A'}
-                  </p>
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+                  <span className="text-white text-xl">📈</span>
                 </div>
+              </div>
+              <div className="text-2xl font-bold text-orange-600 mb-2">
+                {opexData.summary.largest_category?.account_type || 'N/A'}
+              </div>
+              <div className="text-gray-600 text-sm">
+                {opexData.summary.largest_category ? formatCurrency(opexData.summary.largest_category.amount) : 'No data'}
               </div>
             </div>
           </div>
 
           {/* OPEX Breakdown */}
-          <div className="bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10">
-            <div className="px-6 py-4 border-b border-white/10">
-              <h2 className="text-xl font-semibold text-white drop-shadow-lg">OPEX Breakdown by Category</h2>
+          <div className="gradient-card rounded-2xl p-8 elevated-box">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">OPEX Breakdown by Category</h3>
+                <p className="text-gray-600">Detailed expense analysis by account type</p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                <span className="text-white text-xl">📊</span>
+              </div>
             </div>
             
-            <div className="p-6">
-              {opexData.opex_breakdown.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="text-gray-400 text-6xl mb-4">📊</div>
-                  <p className="text-gray-300">No OPEX data available</p>
-                </div>
-              ) : (
-                <div className="space-y-8">
-                  {/* Pie Chart at the top */}
-                  <div className="text-center">
-                    <h3 className="text-lg font-medium text-white mb-4 drop-shadow-lg">OPEX Distribution</h3>
-                    <div className="h-96 mx-auto max-w-4xl">
-                      {pieChartData && (
-                        <Pie data={pieChartData} options={pieChartOptions} />
-                      )}
-                    </div>
+            {opexData.opex_breakdown.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-400 text-6xl mb-4">📊</div>
+                <p className="text-gray-500 text-lg">No OPEX data available</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Pie Chart at the top */}
+                <div className="text-center">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-4">OPEX Distribution</h4>
+                  <div className="h-96 mx-auto max-w-4xl">
+                    {pieChartData && (
+                      <Pie data={pieChartData} options={pieChartOptions} />
+                    )}
                   </div>
+                </div>
 
-                  {/* Category List below */}
-                  <div className="space-y-4">
-                    {opexData.opex_breakdown.map((item, index) => (
-                      <div key={item.account_type} className="bg-black/40 backdrop-blur-sm rounded-lg overflow-hidden border border-white/10">
-                        <div className="flex items-center justify-between p-4">
-                          <div className="flex items-center space-x-4">
-                            <div className={`w-4 h-4 rounded-full ${getCategoryColor(index)}`}></div>
-                            <div>
-                              <h3 className="font-medium text-white">{item.account_type}</h3>
-                              <p className="text-sm text-gray-300">
-                                {item.percentage.toFixed(2)}% of total OPEX
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <div className="text-right">
-                              <p className="text-lg font-semibold text-white">
-                                {formatCurrency(item.amount)}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => toggleExpanded(item.account_type)}
-                              className="px-3 py-1 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white text-sm rounded-md transition-all duration-200"
-                            >
-                              {expandedItems.has(item.account_type) ? 'Hide Details' : 'See Details'}
-                            </button>
+                {/* Category List below */}
+                <div className="space-y-4">
+                  {opexData.opex_breakdown.map((item, index) => (
+                    <div key={item.account_type} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
+                      <div className="flex items-center justify-between p-6">
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-4 h-4 rounded-full ${getCategoryColor(index)}`}></div>
+                          <div>
+                            <h4 className="font-semibold text-gray-800">{item.account_type}</h4>
+                            <p className="text-sm text-gray-600">
+                              {item.percentage.toFixed(2)}% of total OPEX
+                            </p>
                           </div>
                         </div>
-                        
-                        {/* Account Details Section */}
-                        {expandedItems.has(item.account_type) && (
-                          <div className="border-t border-white/10 bg-black/20">
-                            <div className="p-4">
-                              <h4 className="font-medium text-white mb-3 drop-shadow-lg">Account Number Breakdown</h4>
-                              <div className="space-y-2">
-                                {item.account_details.map((account, idx) => (
-                                  <div key={idx} className="flex justify-between items-center py-2 px-3 bg-black/30 rounded border border-white/10">
-                                    <span className="text-sm text-gray-300">{account.account_number}</span>
-                                    <span className="text-sm font-medium text-white">
-                                      {formatCurrency(account.amount)}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
+                        <div className="flex items-center space-x-3">
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-gray-800">
+                              {formatCurrency(item.amount)}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => toggleExpanded(item.account_type)}
+                            className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-black hover:to-gray-800 text-white text-sm rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
+                          >
+                            {expandedItems.has(item.account_type) ? 'Hide Details' : 'See Details'}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Account Details Section */}
+                      {expandedItems.has(item.account_type) && (
+                        <div className="border-t border-gray-200 bg-gray-50">
+                          <div className="p-6">
+                            <h5 className="font-semibold text-gray-800 mb-3">Account Number Breakdown</h5>
+                            <div className="space-y-2">
+                              {item.account_details.map((account, idx) => (
+                                <div key={idx} className="flex justify-between items-center py-3 px-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+                                  <span className="text-sm text-gray-700">{account.account_number}</span>
+                                  <span className="text-sm font-medium text-gray-800">
+                                    {formatCurrency(account.amount)}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
           </div>
-        </div>
         </div>
       </div>
     </div>
