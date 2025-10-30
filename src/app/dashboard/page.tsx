@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import SkeletonLoader from '@/components/SkeletonLoader';
 
 export default function Dashboard() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -21,6 +23,11 @@ export default function Dashboard() {
     } else {
       router.push('/');
     }
+    
+    // Simulate loading time
+    setTimeout(() => {
+      setLoading(false);
+    }, 1000);
   }, [router]);
 
   if (!isLoggedIn) {
@@ -32,6 +39,10 @@ export default function Dashboard() {
         </div>
       </div>
     );
+  }
+
+  if (loading) {
+    return <SkeletonLoader variant="dashboard" />;
   }
 
   return (

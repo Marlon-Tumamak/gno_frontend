@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import SkeletonLoader from '@/components/SkeletonLoader';
 
 export default function Analytics() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -85,29 +86,60 @@ export default function Analytics() {
 
     let monthlyRevenue = 0;
     let monthlyExpenses = 0;
+    let frontloadAmount = 0;
+    let backloadAmount = 0;
+    let otherIncomeAmount = 0;
 
     filteredAccounts.forEach((account: any) => {
       const finalTotal = parseFloat(account.final_total?.toString() || '0');
       const accountType = account.account_type?.toLowerCase() || '';
 
       if (accountType.includes('hauling income')) {
-        // Check if it's Rice Hull Ton (other income) - exclude from regular revenue
-        if (!account.remarks?.toLowerCase().includes('rice hull ton')) {
-          monthlyRevenue += finalTotal;
+        // Use the same calculation as the revenue page (profit and loss analysis)
+        const frontLoad = account.front_load?.toString() || '';
+        const backLoad = account.back_load?.toString() || '';
+        const remarks = account.remarks || '';
+        
+        // Check if it's Rice Hull Ton (other income)
+        if (remarks.toLowerCase().includes('rice hull ton')) {
+          otherIncomeAmount += finalTotal;
+        } else {
+          // Apply backend logic for frontload/backload categorization
+          if (frontLoad.includes('Strike')) {
+            // If front_load is Strike, amount goes to back_load
+            backloadAmount += finalTotal;
+          } else if (backLoad.includes('Strike')) {
+            // If back_load is Strike, amount goes to front_load
+            frontloadAmount += finalTotal;
+          } else if (frontLoad && backLoad) {
+            // Split amount between front and back
+            const halfAmount = finalTotal / 2;
+            frontloadAmount += halfAmount;
+            backloadAmount += halfAmount;
+          } else if (frontLoad) {
+            frontloadAmount += finalTotal;
+          } else if (backLoad) {
+            backloadAmount += finalTotal;
+          }
         }
       } else if (
         accountType.includes('fuel') ||
-        accountType.includes('driver\'s allowance') ||
-        accountType.includes('insurance') ||
-        accountType.includes('repair') ||
-        accountType.includes('maintenance') ||
-        accountType.includes('tax') ||
-        accountType.includes('permit') ||
-        accountType.includes('license')
+        accountType.includes('driver\'s allowance')
       ) {
         monthlyExpenses += finalTotal;
+      } else if (
+        accountType === 'insurance expense' ||
+        accountType === 'repairs and maintenance expense' ||
+        accountType === 'taxes, permits and licenses expense' ||
+        accountType === 'salaries and wages' ||
+        accountType === 'tax expense'
+      ) {
+        // Don't include OPEX in monthly expenses
       }
     });
+
+    // Calculate total revenue using the same formula as profit and loss analysis
+    monthlyRevenue = frontloadAmount + backloadAmount + otherIncomeAmount;
 
     return { monthlyRevenue, monthlyExpenses };
   };
@@ -285,14 +317,7 @@ export default function Analytics() {
   const monthlyFinancials = calculateMonthlyFinancials(selectedMonth);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#296c77' }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white mx-auto"></div>
-          <p className="mt-4 text-white">Loading analytics data...</p>
-        </div>
-      </div>
-    );
+    return <SkeletonLoader variant="analytics" />;
   }
 
   return (

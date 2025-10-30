@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import SkeletonLoader from '@/components/SkeletonLoader';
 
 interface AccountData {
   name: string;
@@ -67,31 +68,17 @@ export default function AccountsPage() {
       orange: 'bg-orange-500/20 border-orange-500/30 text-orange-400',
       red: 'bg-red-500/20 border-red-500/30 text-red-400',
       purple: 'bg-purple-500/20 border-purple-500/30 text-purple-400',
-      emerald: 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+      emerald: 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400',
+      yellow: 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400',
+      indigo: 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400',
+      pink: 'bg-pink-500/20 border-pink-500/30 text-pink-400',
+      cyan: 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400'
     };
     return colorMap[color] || 'bg-gray-500/20 border-gray-500/30 text-gray-400';
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
-        <Navbar />
-        <div className="pt-16 p-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-8 shadow-2xl border border-white/10">
-              <div className="animate-pulse">
-                <div className="h-8 bg-gray-200 rounded mb-6"></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[...Array(6)].map((_, i) => (
-                    <div key={i} className="h-48 bg-gray-200 rounded"></div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <SkeletonLoader variant="accounts" />;
   }
 
   if (error) {
@@ -320,6 +307,10 @@ export default function AccountsPage() {
                             account.color === 'purple' ? 'bg-purple-500' :
                             account.color === 'red' ? 'bg-red-500' :
                             account.color === 'yellow' ? 'bg-yellow-500' :
+                            account.color === 'emerald' ? 'bg-emerald-500' :
+                            account.color === 'indigo' ? 'bg-indigo-500' :
+                            account.color === 'pink' ? 'bg-pink-500' :
+                            account.color === 'cyan' ? 'bg-cyan-500' :
                             'bg-indigo-500'
                           }`}
                           style={{ 

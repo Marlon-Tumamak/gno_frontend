@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import SkeletonLoader from '@/components/SkeletonLoader';
 
 interface TruckingRecord {
   id: number;
@@ -414,36 +415,22 @@ export default function TripsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
-        <Navbar />
-        <div className="pt-16 p-8">
-          <div className="max-w-[95%] mx-auto">
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-8 shadow-2xl border border-white/10">
-              <div className="animate-pulse">
-                <div className="h-8 bg-gray-200 rounded mb-6"></div>
-                <div className="h-64 bg-gray-200 rounded"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <SkeletonLoader variant="trips" />;
   }
 
   if (error) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
         <Navbar />
         <div className="pt-16 p-8">
-          <div className="max-w-[95%] mx-auto">
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-8 shadow-2xl border border-white/10">
+          <div className="max-w-7xl mx-auto">
+            <div className="glass-effect rounded-2xl p-8 elevated-box">
               <div className="text-center">
-                <div className="text-red-400 text-lg font-semibold mb-4">Error</div>
-                <p className="text-gray-300">{error}</p>
+                <div className="text-red-600 text-xl font-bold mb-4">Error</div>
+                <p className="text-gray-600 mb-6">{error}</p>
                 <button
                   onClick={fetchTripsData}
-                  className="mt-4 px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200"
+                  className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
                   Retry
                 </button>
@@ -457,12 +444,12 @@ export default function TripsPage() {
 
   if (!tripsData) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
         <Navbar />
         <div className="pt-16 p-8">
-          <div className="max-w-[95%] mx-auto">
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-8 shadow-2xl border border-white/10">
-              <div className="text-center text-gray-300">No trips data available</div>
+          <div className="max-w-7xl mx-auto">
+            <div className="glass-effect rounded-2xl p-8 elevated-box">
+              <div className="text-center text-gray-600">No trips data available</div>
             </div>
           </div>
         </div>
@@ -580,20 +567,44 @@ export default function TripsPage() {
   });
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <style jsx>{`
+        .elevated-box {
+          box-shadow: 
+            0 10px 25px -5px rgba(0, 0, 0, 0.1),
+            0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          transform: translateY(-2px);
+          transition: all 0.3s ease;
+        }
+        .elevated-box:hover {
+          box-shadow: 
+            0 20px 40px -10px rgba(0, 0, 0, 0.15),
+            0 8px 12px -4px rgba(0, 0, 0, 0.08);
+          transform: translateY(-4px);
+        }
+        .gradient-card {
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .glass-effect {
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+      `}</style>
       <Navbar />
       <div className="pt-16 p-8">
-        <div className="max-w-[95%] mx-auto mt-5">
+        <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="bg-black/60 backdrop-blur-sm rounded-lg p-8 shadow-2xl border border-white/10 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Trips Summary</h1>
-                <p className="text-gray-300">Consolidated view of all trips from trucking data (same date entries combined per truck)</p>
-                <p className="text-sm text-gray-400 mt-1">
-                  Total Trips: {tripsData.total_trips}
+          <div className="glass-effect rounded-2xl p-8 elevated-box mb-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-6 lg:space-y-0">
+              <div className="flex-1">
+                <h1 className="text-4xl font-bold text-black mb-3">Trips Summary</h1>
+                <p className="text-black text-lg">Consolidated view of all trips from trucking data (same date entries combined per truck)</p>
+                <p className="text-sm text-black mt-2">
+                  Total Trips: <span className="font-semibold text-black">{tripsData.total_trips}</span>
                   {(selectedTruck !== 'all' || selectedTruckType !== 'all') && (
-                    <span className="ml-2 text-orange-400 font-medium">
+                    <span className="ml-2 text-orange-600 font-medium">
                       (Showing {filteredTrips.length} trips
                       {selectedTruck !== 'all' && ` for ${selectedTruck}`}
                       {selectedTruckType !== 'all' && ` - ${selectedTruckType} type`})
@@ -601,24 +612,24 @@ export default function TripsPage() {
                   )}
                 </p>
               </div>
-              <div className="flex space-x-4 items-center">
+              <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row space-y-4 sm:space-y-0 sm:space-x-4 lg:space-x-0 lg:space-y-4 xl:space-y-0 xl:space-x-4 items-stretch sm:items-center lg:items-stretch xl:items-center">
                 {hasActiveFilters() && (
                   <button
                     onClick={clearAllFilters}
-                    className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-md transition-all duration-200 text-sm font-medium"
+                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl w-full"
                   >
                     Clear All Filters
                   </button>
                 )}
-                <div className="flex flex-col">
-                  <label htmlFor="truck-filter" className="text-xs font-medium text-gray-300 mb-1">
+                <div className="flex flex-col w-full">
+                  <label htmlFor="truck-filter" className="text-sm font-semibold text-black mb-2">
                     Filter by Truck
                   </label>
                   <select
                     id="truck-filter"
                     value={selectedTruck}
                     onChange={(e) => setSelectedTruck(e.target.value)}
-                    className="px-4 py-2 border border-white/20 rounded-md bg-black/40 text-white hover:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                    className="px-4 py-3 border-2 border-orange-500 text-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-600 font-semibold cursor-pointer hover:border-orange-600 transition-all duration-200 w-full"
                   >
                   <option value="all">
                     {selectedTruckType === 'all' 
@@ -639,15 +650,15 @@ export default function TripsPage() {
                   })}
                 </select>
               </div>
-                <div className="flex flex-col">
-                  <label htmlFor="truck-type-filter" className="text-xs font-medium text-gray-300 mb-1">
+                <div className="flex flex-col w-full">
+                  <label htmlFor="truck-type-filter" className="text-sm font-semibold text-black mb-2">
                     Filter by Truck Type
                   </label>
                   <select
                     id="truck-type-filter"
                     value={selectedTruckType}
                     onChange={(e) => setSelectedTruckType(e.target.value)}
-                    className="px-4 py-2 border border-white/20 rounded-md bg-black/40 text-white hover:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                    className="px-4 py-3 border-2 border-orange-500 text-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-600 font-semibold cursor-pointer hover:border-orange-600 transition-all duration-200 w-full"
                   >
                   <option value="all">All Types ({tripsData.total_trips} trips)</option>
                   {uniqueTruckTypes.map((truckType) => {
@@ -677,33 +688,36 @@ export default function TripsPage() {
           </div>
 
           {/* Trips Table */}
-          <div className="bg-black/60 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 overflow-hidden">
-            <div className="px-6 py-4 border-b border-white/10 bg-black/40">
-              <h2 className="text-xl font-semibold text-white drop-shadow-lg">
+          <div className="gradient-card rounded-2xl shadow-2xl border border-gray-200 overflow-hidden elevated-box">
+            <div className="px-8 py-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+              <h2 className="text-2xl font-bold text-black mb-2">
                 {(selectedTruck === 'all' && selectedTruckType === 'all') ? 'All Trips' : 'Filtered Trips'}
               </h2>
               {(selectedTruck !== 'all' || selectedTruckType !== 'all') && (
-                <p className="text-sm text-gray-300 mt-1">
+                <p className="text-black">
                   Showing {filteredTrips.length} of {tripsData.total_trips} total trips
                   {selectedTruck !== 'all' && ` for ${selectedTruck}`}
                   {selectedTruckType !== 'all' && ` (${selectedTruckType} type)`}
                 </p>
               )}
+              <p className="text-sm text-black mt-2 lg:hidden">
+                📱 Scroll horizontally to see all columns on mobile
+              </p>
           </div>
           
-            <div className="overflow-auto max-h-[100vh]">
-              <table className="min-w-full divide-y divide-white/10 text-sm">
+            <div className="overflow-x-auto overflow-y-auto max-h-[100vh]">
+              <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ minWidth: '1200px' }}>
                 {/* Filter Row */}
-                <thead className="bg-black/60 sticky top-0 z-20">
+                <thead className="bg-gradient-to-r from-gray-100 to-gray-200 sticky top-0 z-20">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       #
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       <select
                         value={filters.plateNumber}
                         onChange={(e) => updateFilter('plateNumber', e.target.value)}
-                        className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        className="w-full px-2 py-1 text-xs bg-white border border-orange-500 rounded text-gray-800 focus:outline-none focus:ring-1 focus:ring-orange-300 focus:border-orange-600 font-medium"
                       >
                         <option value="">All Plate #s</option>
                         {uniquePlateNumbers.map((plate) => (
@@ -713,12 +727,12 @@ export default function TripsPage() {
                         ))}
                       </select>
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       <input
                         type="date"
                         value={filters.date}
                         onChange={(e) => updateFilter('date', e.target.value)}
-                        className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        className="w-full px-2 py-1 text-xs bg-white border border-orange-500 rounded text-gray-800 focus:outline-none focus:ring-1 focus:ring-orange-300 focus:border-orange-600 font-medium"
                       />
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
@@ -979,72 +993,72 @@ export default function TripsPage() {
                   </tr>
                 </thead>
                 {/* Header Row */}
-                <thead className="bg-black/40 sticky top-12 z-10">
+                <thead className="bg-white sticky top-12 z-10">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       #
                     </th>
                     {/* <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Account Types
                     </th> */}
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Plate #
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Date
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Trip/Route
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Driver
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Allowance
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Ref #
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Fuel Liters
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Fuel Amount
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Fuel Total
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Front Load
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Front Load Amt
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Back Load
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Back Load Amt
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Front & Back Amt
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Income
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Other Income
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Remarks
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Insurance Exp
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Repairs & Maint Exp
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Taxes/Permits Exp
                     </th>
                     {/* <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
@@ -1052,73 +1066,73 @@ export default function TripsPage() {
                     </th> */}
                   </tr>
                 </thead>
-                <tbody className="bg-black/20 divide-y divide-white/10">
+                <tbody className="bg-white divide-y divide-gray-200">
                   {filteredTrips.map((trip, index) => (
-                    <tr key={index} className="hover:bg-white/5">
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-400">
+                    <tr key={index} className="hover:bg-gray-50 transition-colors duration-200">
+                      <td className="px-4 py-3 whitespace-nowrap text-black font-medium">
                         {index + 1}
                       </td>
                       {/* <td className="px-3 py-2 whitespace-nowrap text-gray-300">
                         {trip.account_types.length > 0 ? trip.account_types.join(', ') : '-'}
                       </td> */}
-                      <td className="px-3 py-2 whitespace-nowrap text-white font-medium">
+                      <td className="px-4 py-3 whitespace-nowrap text-black font-semibold">
                         {trip.plate_number}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                      <td className="px-4 py-3 whitespace-nowrap text-black">
                         {trip.date}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                      <td className="px-4 py-3 whitespace-nowrap text-black">
                         {trip.trip_route || '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                      <td className="px-4 py-3 whitespace-nowrap text-black">
                         {trip.driver || '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300 text-right" style={{textAlign: 'right'}}>
+                      <td className="px-4 py-3 whitespace-nowrap text-black text-right">
                         {trip.allowance > 0 ? formatCurrency(trip.allowance) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                      <td className="px-4 py-3 whitespace-nowrap text-black">
                         {trip.reference_numbers.length > 0 ? trip.reference_numbers.join(', ') : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300 text-right" style={{textAlign: 'right'}}>
+                      <td className="px-4 py-3 whitespace-nowrap text-black text-right">
                         {trip.fuel_liters > 0 ? trip.fuel_liters.toFixed(2) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300 text-right" style={{textAlign: 'right'}}>
+                      <td className="px-4 py-3 whitespace-nowrap text-black text-right">
                         {trip.fuel_price > 0 ? formatCurrency(trip.fuel_price) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-orange-400 font-medium text-right" style={{textAlign: 'right'}}>
+                      <td className="px-4 py-3 whitespace-nowrap text-orange-600 font-semibold text-right">
                         {trip.fuel_price > 0 ? formatCurrency(trip.fuel_price) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                      <td className="px-4 py-3 whitespace-nowrap text-black">
                         {trip.front_load || '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-blue-400 font-medium text-right" style={{textAlign: 'right'}}>
+                      <td className="px-4 py-3 whitespace-nowrap text-blue-600 font-semibold text-right">
                         {trip.front_load_amount > 0 ? formatCurrency(trip.front_load_amount) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-300">
+                      <td className="px-4 py-3 whitespace-nowrap text-black">
                         {trip.back_load || '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-green-400 font-medium text-right" style={{textAlign: 'right'}}>
+                      <td className="px-4 py-3 whitespace-nowrap text-green-600 font-semibold text-right">
                         {trip.back_load_amount > 0 ? formatCurrency(trip.back_load_amount) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-purple-400 font-bold text-right" style={{textAlign: 'right'}}>
+                      <td className="px-4 py-3 whitespace-nowrap text-purple-600 font-bold text-right">
                         {trip.front_and_back_load_amount > 0 ? formatCurrency(trip.front_and_back_load_amount) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-green-400 font-bold text-right" style={{textAlign: 'right'}}>
+                      <td className="px-4 py-3 whitespace-nowrap text-green-600 font-bold text-right">
                         {trip.income > 0 ? formatCurrency(trip.income) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-yellow-400 font-bold text-right" style={{textAlign: 'right'}}>
+                      <td className="px-4 py-3 whitespace-nowrap text-yellow-600 font-bold text-right">
                         {trip.other_income > 0 ? formatCurrency(trip.other_income) : '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-300 max-w-xs truncate">
+                      <td className="px-4 py-3 text-black max-w-xs truncate">
                         {trip.remarks || '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-red-400 text-right" style={{textAlign: 'right'}}>
+                      <td className="px-4 py-3 whitespace-nowrap text-red-600 text-right">
                         {trip.insurance_expense > 0 ? formatCurrency(trip.insurance_expense) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-red-400 text-right" style={{textAlign: 'right'}}>
+                      <td className="px-4 py-3 whitespace-nowrap text-red-600 text-right">
                         {trip.repairs_maintenance_expense > 0 ? formatCurrency(trip.repairs_maintenance_expense) : '-'}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-red-400 text-right" style={{textAlign: 'right'}}>
+                      <td className="px-4 py-3 whitespace-nowrap text-red-600 text-right">
                         {trip.taxes_permits_licenses_expense > 0 ? formatCurrency(trip.taxes_permits_licenses_expense) : '-'}
                       </td>
                       {/* <td className="px-3 py-2 whitespace-nowrap text-red-400">
@@ -1127,46 +1141,46 @@ export default function TripsPage() {
                     </tr>
                   ))}
                   {/* Totals Row */}
-                  <tr className="bg-black/40 font-bold">
-                    <td colSpan={6} className="px-3 py-3 text-right text-white">
+                  <tr className="bg-gradient-to-r from-gray-100 to-gray-200 font-bold">
+                    <td colSpan={6} className="px-4 py-4 text-right text-black">
                       TOTALS:
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-white text-right" style={{textAlign: 'right'}}>
+                    <td className="px-4 py-4 whitespace-nowrap text-black text-right">
                       {formatCurrency(totals.allowance)}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-white text-right" style={{textAlign: 'right'}}>
+                    <td className="px-4 py-4 whitespace-nowrap text-black text-right">
                       {totals.fuel_liters.toFixed(2)}
                     </td>
-                    <td className="px-3 py-3"></td>
+                    <td className="px-4 py-4"></td>
 
-                    <td className="px-3 py-3 whitespace-nowrap text-orange-400 text-right" style={{textAlign: 'right'}}>
+                    <td className="px-4 py-4 whitespace-nowrap text-orange-600 text-right">
                       {formatCurrency(totals.fuel_total)}
                     </td>
-                    <td className="px-3 py-3"></td>
-                    <td className="px-3 py-3 whitespace-nowrap text-blue-400 text-right" style={{textAlign: 'right'}}>
+                    <td className="px-4 py-4"></td>
+                    <td className="px-4 py-4 whitespace-nowrap text-blue-600 text-right">
                       {formatCurrency(totals.front_load_amount)}
                     </td>
-                    <td className="px-3 py-3"></td>
-                    <td className="px-3 py-3 whitespace-nowrap text-green-400 text-right" style={{textAlign: 'right'}}>
+                    <td className="px-4 py-4"></td>
+                    <td className="px-4 py-4 whitespace-nowrap text-green-600 text-right">
                       {formatCurrency(totals.back_load_amount)}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-purple-400 text-right" style={{textAlign: 'right'}}>
+                    <td className="px-4 py-4 whitespace-nowrap text-purple-600 text-right">
                       {formatCurrency(totals.front_and_back_load_amount)}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-green-400 text-right" style={{textAlign: 'right'}}>
+                    <td className="px-4 py-4 whitespace-nowrap text-green-600 text-right">
                       {formatCurrency(totals.income)}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-yellow-400 text-right" style={{textAlign: 'right'}}>
+                    <td className="px-4 py-4 whitespace-nowrap text-yellow-600 text-right">
                       {formatCurrency(totals.other_income)}
                     </td>
-                    <td className="px-3 py-3"></td>
-                    <td className="px-3 py-3 whitespace-nowrap text-red-400 text-right" style={{textAlign: 'right'}}>
+                    <td className="px-4 py-4"></td>
+                    <td className="px-4 py-4 whitespace-nowrap text-red-600 text-right">
                       {formatCurrency(totals.insurance_expense)}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-red-400 text-right" style={{textAlign: 'right'}}>
+                    <td className="px-4 py-4 whitespace-nowrap text-red-600 text-right">
                       {formatCurrency(totals.repairs_maintenance_expense)}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-red-400 text-right" style={{textAlign: 'right'}}>
+                    <td className="px-4 py-4 whitespace-nowrap text-red-600 text-right">
                       {formatCurrency(totals.taxes_permits_licenses_expense)}
                     </td>
                     {/* <td className="px-3 py-3 whitespace-nowrap text-red-400">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import SkeletonLoader from '@/components/SkeletonLoader';
 
 interface TruckingRecord {
   id: number;
@@ -256,25 +257,7 @@ export default function DriversPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen" style={{ backgroundColor: '#296c77' }}>
-        <Navbar />
-        <div className="pt-16 p-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-8 shadow-2xl border border-white/10">
-              <div className="animate-pulse">
-                <div className="h-8 bg-gray-200 rounded mb-6"></div>
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-16 bg-gray-200 rounded"></div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <SkeletonLoader variant="drivers" />;
   }
 
   if (error) {
