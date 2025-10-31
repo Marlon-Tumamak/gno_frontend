@@ -5,6 +5,16 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import SkeletonLoader from '@/components/SkeletonLoader';
 
+interface DriverObject {
+  id?: number;
+  name: string;
+}
+
+interface RouteObject {
+  id?: number;
+  name: string;
+}
+
 interface TruckingRecord {
   id: number;
   account_number: string;
@@ -20,8 +30,8 @@ interface TruckingRecord {
   date: string;
   quantity: number | null;
   price: number | null;
-  driver: string | null;
-  route: string | null;
+  driver?: string | DriverObject | null;
+  route?: string | RouteObject | null;
   front_load: string | null;
   back_load: string | null;
 }
@@ -91,13 +101,31 @@ export default function DriversPage() {
     }
   };
 
+  const getDriverName = (driver: string | DriverObject | null | undefined): string => {
+    if (!driver) return '';
+    if (typeof driver === 'string') return driver;
+    if (typeof driver === 'object' && driver !== null && 'name' in driver) {
+      return driver.name;
+    }
+    return '';
+  };
+
+  const getRouteName = (route: string | RouteObject | null | undefined): string => {
+    if (!route) return 'N/A';
+    if (typeof route === 'string') return route;
+    if (typeof route === 'object' && route !== null && 'name' in route) {
+      return route.name;
+    }
+    return 'N/A';
+  };
+
   const processTruckingData = (data: TruckingRecord[]): DriversSummary => {
     // Group by driver
     const driverMap = new Map<string, Driver>();
 
     data.forEach((record) => {
       // Get driver name from either string or object
-      const driverNameStr = typeof record.driver === 'object' && record.driver?.name ? record.driver.name : (record.driver || '');
+      const driverNameStr = getDriverName(record.driver);
       
       // Skip records without driver or with empty driver
       if (!driverNameStr || driverNameStr.trim() === '' || driverNameStr.toLowerCase() === 'nan') {
@@ -152,7 +180,7 @@ export default function DriversPage() {
             date: record.date,
             amount: halfAmount,
             load_type: 'front_load',
-            route: (typeof record.route === 'object' && record.route?.name) || record.route || 'N/A',
+            route: getRouteName(record.route),
             description: `${record.description} (Front: ${record.front_load})`,
             account_type: record.account_type,
           });
@@ -164,7 +192,7 @@ export default function DriversPage() {
             date: record.date,
             amount: halfAmount,
             load_type: 'back_load',
-            route: (typeof record.route === 'object' && record.route?.name) || record.route || 'N/A',
+            route: getRouteName(record.route),
             description: `${record.description} (Back: ${record.back_load})`,
             account_type: record.account_type,
           });
@@ -179,7 +207,7 @@ export default function DriversPage() {
             date: record.date,
             amount: finalTotal,
             load_type: 'front_load',
-            route: (typeof record.route === 'object' && record.route?.name) || record.route || 'N/A',
+            route: getRouteName(record.route),
             description: `${record.description} (Front: ${record.front_load})`,
             account_type: record.account_type,
           });
@@ -194,7 +222,7 @@ export default function DriversPage() {
             date: record.date,
             amount: finalTotal,
             load_type: 'back_load',
-            route: (typeof record.route === 'object' && record.route?.name) || record.route || 'N/A',
+            route: getRouteName(record.route),
             description: `${record.description} (Back: ${record.back_load})`,
             account_type: record.account_type,
           });
@@ -209,7 +237,7 @@ export default function DriversPage() {
           date: record.date,
           amount: finalTotal,
           load_type: 'allowance',
-          route: record.route || 'N/A',
+          route: getRouteName(record.route),
           description: record.description,
           account_type: record.account_type,
         });
@@ -223,7 +251,7 @@ export default function DriversPage() {
           date: record.date,
           amount: finalTotal,
           load_type: 'fuel_and_oil',
-          route: record.route || 'N/A',
+          route: getRouteName(record.route),
           description: record.description,
           account_type: record.account_type,
         });

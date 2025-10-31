@@ -5,6 +5,16 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import SkeletonLoader from '@/components/SkeletonLoader';
 
+interface DriverObject {
+  id?: number;
+  name: string;
+}
+
+interface RouteObject {
+  id?: number;
+  name: string;
+}
+
 interface TruckingRecord {
   id: number;
   account_number: string;
@@ -20,8 +30,8 @@ interface TruckingRecord {
   date: string;
   quantity: number | null;
   price: number | null;
-  driver: string | null;
-  route: string | null;
+  driver?: string | DriverObject | null;
+  route?: string | RouteObject | null;
   front_load: string | null;
   back_load: string | null;
 }
@@ -184,6 +194,24 @@ export default function TripsPage() {
       .trim();                 // Remove any remaining whitespace
   };
 
+  const getDriverName = (driver: string | DriverObject | null | undefined): string => {
+    if (!driver) return '';
+    if (typeof driver === 'string') return driver;
+    if (typeof driver === 'object' && driver !== null && 'name' in driver) {
+      return driver.name;
+    }
+    return '';
+  };
+
+  const getRouteName = (route: string | RouteObject | null | undefined): string => {
+    if (!route) return '';
+    if (typeof route === 'string') return route;
+    if (typeof route === 'object' && route !== null && 'name' in route) {
+      return route.name;
+    }
+    return '';
+  };
+
   const processTruckingData = (data: TruckingRecord[]): TripsData => {
     // Group by plate number and date
     const tripMap = new Map<string, Trip>();
@@ -251,10 +279,10 @@ export default function TripsPage() {
 
       // Set driver and route from first valid record
       if (!trip.driver && record.driver) {
-        trip.driver = typeof record.driver === 'object' && record.driver?.name ? record.driver.name : record.driver;
+        trip.driver = getDriverName(record.driver);
       }
       if (!trip.trip_route && record.route) {
-        trip.trip_route = typeof record.route === 'object' && record.route?.name ? record.route.name : record.route;
+        trip.trip_route = getRouteName(record.route);
       }
 
       // Process based on account type
