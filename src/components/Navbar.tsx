@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSummaryDropdownOpen, setIsSummaryDropdownOpen] = useState(false);
+  const [isReportsDropdownOpen, setIsReportsDropdownOpen] = useState(false);
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -20,7 +20,7 @@ const Navbar = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsSummaryDropdownOpen(false);
+        setIsReportsDropdownOpen(false);
       }
     };
 
@@ -31,13 +31,12 @@ const Navbar = () => {
   }, []);
 
   const navLinks = [
-    { name: 'Dashboard', href: '/dashboard' },
     { name: 'Analytics', href: '/analytics' },
-    { name: 'Revenue', href: '/revenue' },
+    { name: 'Profit & Loss Report', href: '/revenue' },
     { name: 'Upload', href: '/upload' },
   ];
 
-  const summaryLinks = [
+  const reportsLinks = [
     { name: 'Drivers', href: '/drivers' },
     { name: 'Trips', href: '/trips' },
     { name: 'Accounts', href: '/accounts' },
@@ -70,13 +69,13 @@ const Navbar = () => {
             {/* Summary Dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button
-                onClick={() => setIsSummaryDropdownOpen(!isSummaryDropdownOpen)}
+                onClick={() => setIsReportsDropdownOpen(!isReportsDropdownOpen)}
                 className="text-gray-300 hover:text-orange-400 transition-colors duration-200 font-medium drop-shadow-sm flex items-center"
               >
-                Summary
+                Reports
                 <svg
                   className={`ml-1 h-4 w-4 transition-transform duration-200 ${
-                    isSummaryDropdownOpen ? 'rotate-180' : ''
+                    isReportsDropdownOpen ? 'rotate-180' : ''
                   }`}
                   fill="none"
                   stroke="currentColor"
@@ -92,14 +91,14 @@ const Navbar = () => {
               </button>
               
               {/* Dropdown Menu */}
-              {isSummaryDropdownOpen && (
+              {isReportsDropdownOpen && (
                 <div className="absolute top-full left-0 mt-2 w-48 bg-black/80 backdrop-blur-sm rounded-lg shadow-2xl border border-white/10 py-2 z-50">
-                  {summaryLinks.map((link) => (
+                  {reportsLinks.map((link) => (
                     <Link
                       key={link.name}
                       href={link.href}
                       className="block px-4 py-2 text-gray-300 hover:text-orange-400 hover:bg-white/5 transition-colors duration-200 font-medium"
-                      onClick={() => setIsSummaryDropdownOpen(false)}
+                      onClick={() => setIsReportsDropdownOpen(false)}
                     >
                       {link.name}
                     </Link>
@@ -183,8 +182,8 @@ const Navbar = () => {
               
               {/* Mobile Summary Section */}
               <div className="px-3 py-2">
-                <div className="text-orange-400 font-medium text-sm mb-2">Summary</div>
-                {summaryLinks.map((link) => (
+                <div className="text-orange-400 font-medium text-sm mb-2">Reports</div>
+                {reportsLinks.map((link) => (
                   <Link
                     key={link.name}
                     href={link.href}

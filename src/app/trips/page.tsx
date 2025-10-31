@@ -251,10 +251,10 @@ export default function TripsPage() {
 
       // Set driver and route from first valid record
       if (!trip.driver && record.driver) {
-        trip.driver = record.driver;
+        trip.driver = typeof record.driver === 'object' && record.driver?.name ? record.driver.name : record.driver;
       }
       if (!trip.trip_route && record.route) {
-        trip.trip_route = record.route;
+        trip.trip_route = typeof record.route === 'object' && record.route?.name ? record.route.name : record.route;
       }
 
       // Process based on account type

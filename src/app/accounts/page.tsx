@@ -184,7 +184,7 @@ export default function AccountsPage() {
           </div>
 
           {/* Accounts Overview Cards */}
-          <div className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Total Accounts Card */}
             <div className="gradient-card rounded-2xl p-6 elevated-box">
               <div className="flex items-center justify-between mb-4">
@@ -234,7 +234,7 @@ export default function AccountsPage() {
             </div>
 
             {/* Total Final Card */}
-            <div className="gradient-card rounded-2xl p-6 elevated-box">
+            {/* <div className="gradient-card rounded-2xl p-6 elevated-box">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-bold text-gray-800 mb-1">Total Final</h3>
@@ -247,7 +247,7 @@ export default function AccountsPage() {
               <div className="text-2xl font-bold text-indigo-600">
                 {formatCurrency(accountsData.summary.total_final)}
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Account Type Breakdown */}
@@ -274,7 +274,7 @@ export default function AccountsPage() {
                     </div>
                     
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center">
+                      {/* <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-600">Total Debit:</span>
                         <span className="font-bold text-red-600">
                           {formatCurrency(account.total_debit)}
@@ -286,7 +286,7 @@ export default function AccountsPage() {
                         <span className="font-bold text-green-600">
                           {formatCurrency(account.total_credit)}
                         </span>
-                      </div>
+                      </div> */}
                       
                       <div className="flex justify-between items-center border-t border-gray-200 pt-3">
                         <span className="text-sm font-bold text-gray-800">Final Total:</span>
@@ -326,7 +326,7 @@ export default function AccountsPage() {
           </div>
 
           {/* Detailed Summary */}
-          <div className="gradient-card rounded-2xl p-8 elevated-box">
+          {/* <div className="gradient-card rounded-2xl p-8 elevated-box">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-2xl font-bold text-gray-800 mb-2">Detailed Summary</h3>
@@ -389,7 +389,7 @@ export default function AccountsPage() {
                     </tr>
                   ))}
                   {/* Total Row */}
-                  <tr className="bg-gray-100 font-bold">
+                  {/* <tr className="bg-gray-100 font-bold">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-bold text-gray-900">TOTAL</div>
                     </td>
@@ -417,7 +417,7 @@ export default function AccountsPage() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

@@ -559,10 +559,10 @@ export default function AccountsDetailPage() {
                         {selectedAccount === 'fuel' && (
                           <>
                             <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {entry.driver || '-'}
+                              {(typeof entry.driver === 'object' && entry.driver?.name) || entry.driver || '-'}
                             </td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {entry.route || '-'}
+                              {(typeof entry.route === 'object' && entry.route?.name) || entry.route || '-'}
                             </td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
                               {entry.liters || '-'}
@@ -572,10 +572,10 @@ export default function AccountsDetailPage() {
                         {selectedAccount === 'income' && (
                           <>
                             <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {entry.driver || '-'}
+                              {(typeof entry.driver === 'object' && entry.driver?.name) || entry.driver || '-'}
                             </td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {entry.route || '-'}
+                              {(typeof entry.route === 'object' && entry.route?.name) || entry.route || '-'}
                             </td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
                               {entry.quantity || '-'}

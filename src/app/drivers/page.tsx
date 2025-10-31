@@ -96,12 +96,15 @@ export default function DriversPage() {
     const driverMap = new Map<string, Driver>();
 
     data.forEach((record) => {
+      // Get driver name from either string or object
+      const driverNameStr = typeof record.driver === 'object' && record.driver?.name ? record.driver.name : (record.driver || '');
+      
       // Skip records without driver or with empty driver
-      if (!record.driver || record.driver.trim() === '' || record.driver.toLowerCase() === 'nan') {
+      if (!driverNameStr || driverNameStr.trim() === '' || driverNameStr.toLowerCase() === 'nan') {
         return;
       }
 
-      const driverName = record.driver.trim();
+      const driverName = driverNameStr.trim();
 
       // Initialize driver if not exists
       if (!driverMap.has(driverName)) {
@@ -149,7 +152,7 @@ export default function DriversPage() {
             date: record.date,
             amount: halfAmount,
             load_type: 'front_load',
-            route: record.route || 'N/A',
+            route: (typeof record.route === 'object' && record.route?.name) || record.route || 'N/A',
             description: `${record.description} (Front: ${record.front_load})`,
             account_type: record.account_type,
           });
@@ -161,7 +164,7 @@ export default function DriversPage() {
             date: record.date,
             amount: halfAmount,
             load_type: 'back_load',
-            route: record.route || 'N/A',
+            route: (typeof record.route === 'object' && record.route?.name) || record.route || 'N/A',
             description: `${record.description} (Back: ${record.back_load})`,
             account_type: record.account_type,
           });
@@ -176,7 +179,7 @@ export default function DriversPage() {
             date: record.date,
             amount: finalTotal,
             load_type: 'front_load',
-            route: record.route || 'N/A',
+            route: (typeof record.route === 'object' && record.route?.name) || record.route || 'N/A',
             description: `${record.description} (Front: ${record.front_load})`,
             account_type: record.account_type,
           });
@@ -191,7 +194,7 @@ export default function DriversPage() {
             date: record.date,
             amount: finalTotal,
             load_type: 'back_load',
-            route: record.route || 'N/A',
+            route: (typeof record.route === 'object' && record.route?.name) || record.route || 'N/A',
             description: `${record.description} (Back: ${record.back_load})`,
             account_type: record.account_type,
           });

@@ -165,8 +165,8 @@ export default function SalaryPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.date}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.quantity !== null ? account.quantity : '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.price !== null ? formatCurrency(account.price) : '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.driver || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.route || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(typeof account.driver === 'object' && account.driver?.name) || account.driver || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(typeof account.route === 'object' && account.route?.name) || account.route || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.front_load || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.back_load || '-'}</td>
                   </tr>

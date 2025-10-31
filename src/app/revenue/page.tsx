@@ -116,7 +116,7 @@ export default function RevenuePage() {
 
       if (accountType.includes('hauling income')) {
         // Use the same calculation as the backend (revenue_streams)
-        const route = account.route?.toString() || '';
+        const route = (typeof account.route === 'object' && account.route?.name) || account.route || '';
         const frontLoad = account.front_load?.toString() || '';
         const backLoad = account.back_load?.toString() || '';
         
@@ -163,6 +163,9 @@ export default function RevenuePage() {
     // Calculate total revenue using the same formula as the top cards
     totalRevenue = frontloadAmount + backloadAmount + otherIncomeAmount;
 
+    const grossProfit = totalRevenue - totalExpenses;
+    const netProfit = grossProfit - totalOpex;
+
     return {
       totalRevenue,
       totalExpenses,
@@ -172,7 +175,8 @@ export default function RevenuePage() {
       allowanceAmount,
       fuelAmount,
       totalOpex,
-      grossProfit: totalRevenue - totalExpenses,
+      grossProfit,
+      netProfit,
       recordCount: filteredAccounts.length
     };
   };
@@ -217,6 +221,7 @@ export default function RevenuePage() {
     let otherIncomeAmount = 0;
     let allowanceAmount = 0;
     let fuelAmount = 0;
+    let totalOpex = 0;
 
     filteredAccounts.forEach((account: any) => {
       const finalTotal = parseFloat(account.final_total?.toString() || '0');
@@ -259,12 +264,16 @@ export default function RevenuePage() {
         accountType === 'salaries and wages' ||
         accountType === 'tax expense'
       ) {
+        totalOpex += finalTotal;
         // Don't include OPEX in total expenses for Cost of Service
       }
     });
 
     // Calculate total revenue using the same formula
     totalRevenue = frontloadAmount + backloadAmount + otherIncomeAmount;
+
+    const grossProfit = totalRevenue - totalExpenses;
+    const netProfit = grossProfit - totalOpex;
 
     return {
       totalRevenue,
@@ -274,7 +283,9 @@ export default function RevenuePage() {
       otherIncomeAmount,
       allowanceAmount,
       fuelAmount,
-      grossProfit: totalRevenue - totalExpenses,
+      totalOpex,
+      grossProfit,
+      netProfit,
       recordCount: filteredAccounts.length
     };
   };
@@ -779,13 +790,39 @@ export default function RevenuePage() {
                     </div>
 
                     {/* Gross Profit Section */}
-                    <div>
+                    <div className="mb-4">
                       <h4 className="text-sm font-medium text-gray-700 mb-2">Gross Profit</h4>
                       <div className="border-t border-gray-200 pt-1 mt-1">
                         <div className="flex justify-between">
                           <span className="text-sm font-bold text-gray-800">Gross Profit</span>
                           <span className={`text-sm font-bold ${(calculateOverallSummary()?.grossProfit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {formatCurrency(calculateOverallSummary()?.grossProfit || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Operating Expenses Section */}
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Operating Expenses</h4>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Total OPEX</span>
+                          <span className="text-sm font-medium text-red-600">
+                            {formatCurrency(calculateOverallSummary()?.totalOpex || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Net Profit Section */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Net Profit</h4>
+                      <div className="border-t border-gray-200 pt-1 mt-1">
+                        <div className="flex justify-between">
+                          <span className="text-sm font-bold text-gray-800">Net Profit</span>
+                          <span className={`text-sm font-bold ${(calculateOverallSummary()?.netProfit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(Math.abs(calculateOverallSummary()?.netProfit || 0))}
                           </span>
                         </div>
                       </div>
@@ -876,14 +913,40 @@ export default function RevenuePage() {
                       </div>
                     </div>
 
+                    {/* Gross Profit Section */}
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Gross Profit</h4>
+                      <div className="border-t border-gray-200 pt-1 mt-1">
+                        <div className="flex justify-between">
+                          <span className="text-sm font-bold text-gray-800">Gross Profit</span>
+                          <span className={`text-sm font-bold ${(calculateFilteredPL()?.grossProfit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(calculateFilteredPL()?.grossProfit || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Operating Expenses Section */}
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Operating Expenses</h4>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Total OPEX</span>
+                          <span className="text-sm font-medium text-red-600">
+                            {formatCurrency(calculateFilteredPL()?.totalOpex || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Net Profit Section */}
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-2">Net Profit</h4>
                       <div className="border-t border-gray-200 pt-1 mt-1">
                         <div className="flex justify-between">
                           <span className="text-sm font-bold text-gray-800">Net Profit</span>
-                          <span className={`text-sm font-bold ${(calculateFilteredPL()?.grossProfit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {formatCurrency(calculateFilteredPL()?.grossProfit || 0)}
+                          <span className={`text-sm font-bold ${(calculateFilteredPL()?.netProfit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(Math.abs(calculateFilteredPL()?.netProfit || 0))}
                           </span>
                         </div>
                       </div>

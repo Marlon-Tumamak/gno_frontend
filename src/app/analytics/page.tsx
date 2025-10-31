@@ -11,6 +11,8 @@ export default function Analytics() {
   const [userEmail, setUserEmail] = useState('');
   const [apiData, setApiData] = useState<any>(null);
   const [tripsData, setTripsData] = useState<any>(null);
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [routes, setRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // Default to current month (YYYY-MM)
   const router = useRouter();
@@ -34,14 +36,30 @@ export default function Analytics() {
   const fetchData = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-      const response = await fetch(`${apiUrl}/api/v1/trucking/`);
       
-      if (response.ok) {
-        const data = await response.json();
+      // Fetch all data in parallel
+      const [truckingRes, driversRes, routesRes] = await Promise.all([
+        fetch(`${apiUrl}/api/v1/trucking/`),
+        fetch(`${apiUrl}/api/v1/drivers/`),
+        fetch(`${apiUrl}/api/v1/routes/`)
+      ]);
+      
+      if (truckingRes.ok) {
+        const data = await truckingRes.json();
         setApiData(data);
         setTripsData(data); // Use the same data for trips summary
       } else {
-        console.error('API Error:', response.status, response.statusText);
+        console.error('API Error:', truckingRes.status, truckingRes.statusText);
+      }
+      
+      if (driversRes.ok) {
+        const driversData = await driversRes.json();
+        setDrivers(driversData);
+      }
+      
+      if (routesRes.ok) {
+        const routesData = await routesRes.json();
+        setRoutes(routesData);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -146,6 +164,9 @@ export default function Analytics() {
 
   // Calculate data from API or use mock data
   const calculateData = () => {
+    // Use drivers from API directly
+    const totalDrivers = drivers.length;
+    
     if (apiData) {
       // Handle different possible API response structures
       let accounts = [];
@@ -159,14 +180,6 @@ export default function Analytics() {
       
       if (accounts.length > 0) {
         const totalAccounts = accounts.length;
-        
-        // Count unique drivers by driver name (remove duplicates)
-        const uniqueDriverNames = new Set(
-          accounts
-            .filter((acc: any) => acc.driver && acc.driver.trim() !== '')
-            .map((acc: any) => acc.driver.trim().toLowerCase())
-        );
-        const totalDrivers = uniqueDriverNames.size;
         
         // Count unique trucks by plate numbers (remove duplicates)
         const uniquePlateNumbers = new Set(
@@ -197,10 +210,10 @@ export default function Analytics() {
     
     // Fallback mock data
     return {
-      totalTrucks: 125,
-      totalDrivers: 52,
-      totalAccounts: 200,
-      accountTypeCounts: { Truck: 125, Driver: 52, Other: 23 },
+      totalTrucks: 0,
+      totalDrivers,
+      totalAccounts: 0,
+      accountTypeCounts: {},
       monthlyRevenue: 285000,
       pendingDeliveries: 18,
       completedTrips: 342
@@ -238,7 +251,7 @@ export default function Analytics() {
           if (!uniqueTrucks.has(plate)) {
             uniqueTrucks.set(plate, {
               plate: plate,
-              driver: acc.driver || 'Unknown Driver'
+              driver: (typeof acc.driver === 'object' && acc.driver?.name) || acc.driver || 'Unknown Driver'
             });
           }
         }
@@ -620,45 +633,18 @@ export default function Analytics() {
                 </div>
               </div>
               <div className="space-y-3 max-h-80 overflow-y-auto scrollbar-thin">
-                {(() => {
-                  if (apiData) {
-                    let accounts = [];
-                    if (apiData.accounts) {
-                      accounts = apiData.accounts;
-                    } else if (Array.isArray(apiData)) {
-                      accounts = apiData;
-                    } else if (apiData.data && Array.isArray(apiData.data)) {
-                      accounts = apiData.data;
-                    }
-                    
-                    // Get unique drivers
-                    const uniqueDrivers = new Set();
-                    accounts.forEach((acc: any) => {
-                      if (acc.driver && acc.driver.trim() !== '') {
-                        uniqueDrivers.add(acc.driver.trim());
-                      }
-                    });
-                    
-                    return Array.from(uniqueDrivers).map((driver, index) => (
-                      <div key={index} className="flex items-center space-x-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                          <span className="text-white text-sm font-bold">{index + 1}</span>
-                        </div>
-                        <div className="text-gray-800 font-semibold">{driver as string}</div>
-                      </div>
-                    ));
-                  }
-                  
-                  // Fallback mock data
-                  return ['John Smith', 'Maria Garcia', 'David Johnson', 'Sarah Wilson', 'Michael Brown'].map((driver, index) => (
-                    <div key={index} className="flex items-center space-x-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
+                {drivers.length > 0 ? (
+                  drivers.map((driver, index) => (
+                    <div key={driver.id} className="flex items-center space-x-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                         <span className="text-white text-sm font-bold">{index + 1}</span>
                       </div>
-                      <div className="text-gray-800 font-semibold">{driver}</div>
+                      <div className="text-gray-800 font-semibold">{driver.name}</div>
                     </div>
-                  ));
-                })()}
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No drivers available</p>
+                )}
               </div>
             </div>
 

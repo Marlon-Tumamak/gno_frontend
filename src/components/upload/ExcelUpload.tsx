@@ -345,11 +345,15 @@ export default function ExcelUpload() {
   }) || [];
 
   return (
-    <div className={`mx-auto p-6 ${(previewData || backendPreviewData) ? 'max-w-7xl' : 'max-w-2xl'}`}>
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-6 text-gray-800">
-          Upload Excel File
-        </h2>
+    <div className="bg-white rounded-2xl shadow-lg p-8 w-full">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-3xl font-bold text-gray-800">
+            Upload Excel File
+          </h2>
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+            <span className="text-white text-xl">📤</span>
+          </div>
+        </div>
 
         <div className="mb-6">
           <label
@@ -362,7 +366,7 @@ export default function ExcelUpload() {
             id="upload-type"
             value={uploadType}
             onChange={handleUploadTypeChange}
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full px-4 py-3 border-2 border-orange-500 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-600 transition-all duration-200"
           >
             {uploadTypes.map((type) => (
               <option key={type.value} value={type.value}>
@@ -384,7 +388,7 @@ export default function ExcelUpload() {
             type="file"
             accept=".xlsx,.xls"
             onChange={handleFileChange}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-gradient-to-r file:from-orange-500 file:to-orange-600 file:text-white hover:file:from-orange-600 hover:file:to-orange-700 file:transition-all file:duration-200"
           />
           {file && (
             <p className="mt-2 text-sm text-gray-600">
@@ -397,10 +401,10 @@ export default function ExcelUpload() {
           <button
             onClick={handlePreview}
             disabled={!file || previewing}
-            className={`w-full py-2 px-4 rounded-md font-semibold text-white transition-colors ${
+            className={`w-full py-3 px-6 rounded-xl font-semibold text-white transition-all duration-200 shadow-lg ${
               !file || previewing
                 ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-black hover:to-gray-800'
             }`}
           >
             {previewing ? 'Loading Preview...' : 'Preview Data'}
@@ -410,10 +414,10 @@ export default function ExcelUpload() {
             <button
               onClick={handleUpload}
               disabled={uploading}
-              className={`w-full py-2 px-4 rounded-md font-semibold text-white transition-colors ${
+              className={`w-full py-3 px-6 rounded-xl font-semibold text-white transition-all duration-200 shadow-lg ${
                 uploading
                   ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700'
+                  : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
               }`}
             >
               {uploading ? 'Uploading...' : 'Confirm Upload'}
@@ -425,7 +429,7 @@ export default function ExcelUpload() {
                 setSearchTerm('');
               }}
               disabled={uploading}
-              className="w-full py-2 px-4 rounded-md font-semibold text-gray-700 bg-gray-200 hover:bg-gray-300 transition-colors disabled:opacity-50"
+              className="w-full py-3 px-6 rounded-xl font-semibold text-gray-700 bg-gray-200 hover:bg-gray-300 transition-all duration-200 disabled:opacity-50"
             >
               Cancel / Choose Different File
             </button>
@@ -435,7 +439,7 @@ export default function ExcelUpload() {
         {/* Backend Preview Data Table for Trucking Accounts */}
         {backendPreviewData && (
           <div className="mt-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4">
               <h3 className="text-lg font-semibold text-blue-800 mb-2">
                 📋 Data Preview (with Parsed Fields)
               </h3>
@@ -445,7 +449,7 @@ export default function ExcelUpload() {
               <p className="text-xs text-blue-600 mb-2">
                 📜 Showing all {backendPreviewData.preview_data.length} entries. Scroll down to see more data.
               </p>
-              <div className="bg-green-50 p-3 rounded border border-green-200">
+              <div className="bg-green-50 p-3 rounded-xl border border-green-200">
                 <p className="text-green-800 font-semibold text-sm">📊 Parsing Statistics:</p>
                 <ul className="text-green-700 text-xs mt-1">
                   <li>• Drivers extracted: {backendPreviewData.parsing_stats.drivers_extracted}</li>
@@ -463,7 +467,7 @@ export default function ExcelUpload() {
                     placeholder="Search across all columns..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-500"
                   />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                   <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -486,7 +490,7 @@ export default function ExcelUpload() {
               )}
             </div>
             
-            <div className="overflow-x-auto border border-gray-200 rounded-md">
+            <div className="overflow-x-auto border border-gray-200 rounded-xl">
               <div className="max-h-[600px] overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-10">
@@ -546,7 +550,7 @@ export default function ExcelUpload() {
         {/* Preview Data Table */}
         {previewData && (
           <div className="mt-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4">
               <h3 className="text-lg font-semibold text-blue-800 mb-2">
                 📋 Data Preview
               </h3>
@@ -555,7 +559,7 @@ export default function ExcelUpload() {
               </p>
             </div>
             
-            <div className="overflow-x-auto border border-gray-200 rounded-md">
+            <div className="overflow-x-auto border border-gray-200 rounded-xl">
               <div className="max-h-96 overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-10">
@@ -600,7 +604,7 @@ export default function ExcelUpload() {
 
         {/* Success Response */}
         {response && (
-          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-md">
+          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl">
             <h3 className="text-lg font-semibold text-green-800 mb-2">
               {response.message}
             </h3>
@@ -610,7 +614,7 @@ export default function ExcelUpload() {
                 <p className="text-red-600">❌ Errors: {response.errors.length}</p>
               )}
               {response.parsing_stats && (
-                <div className="mt-2 p-2 bg-blue-50 rounded">
+                  <div className="mt-2 p-2 bg-blue-50 rounded-xl">
                   <p className="text-blue-800 font-semibold">📊 Parsing Statistics:</p>
                   <ul className="text-blue-700 text-xs mt-1">
                     <li>• Drivers extracted: {response.parsing_stats.drivers_extracted}</li>
@@ -635,14 +639,14 @@ export default function ExcelUpload() {
 
         {/* Error Message */}
         {error && (
-          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
+          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl">
             <h3 className="text-lg font-semibold text-red-800 mb-2">Error</h3>
             <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
         {/* Excel Format Instructions */}
-        <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-md">
+        <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-xl">
           <h3 className="text-lg font-semibold text-blue-800 mb-2">
             Excel File Format for {uploadTypes.find(type => type.value === uploadType)?.label}
           </h3>
@@ -679,7 +683,6 @@ export default function ExcelUpload() {
             ))}
           </div>
         </div>
-      </div>
     </div>
   );
 }
