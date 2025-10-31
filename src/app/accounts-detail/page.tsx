@@ -5,6 +5,16 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import SkeletonLoader from '@/components/SkeletonLoader';
 
+interface Driver {
+  id?: number;
+  name: string;
+}
+
+interface Route {
+  id?: number;
+  name: string;
+}
+
 interface AccountEntry {
   id: number;
   account_number: string;
@@ -18,8 +28,8 @@ interface AccountEntry {
   date: string;
   description: string;
   remarks: string;
-  driver?: string;
-  route?: string;
+  driver?: string | Driver;
+  route?: string | Route;
   liters?: number;
   price?: number;
   front_load?: string;
@@ -74,6 +84,24 @@ export default function AccountsDetailPage() {
       style: 'currency',
       currency: 'PHP',
     }).format(amount);
+  };
+
+  const getDriverName = (driver: string | Driver | undefined): string => {
+    if (!driver) return '-';
+    if (typeof driver === 'string') return driver;
+    if (typeof driver === 'object' && driver !== null && 'name' in driver) {
+      return driver.name;
+    }
+    return '-';
+  };
+
+  const getRouteName = (route: string | Route | undefined): string => {
+    if (!route) return '-';
+    if (typeof route === 'string') return route;
+    if (typeof route === 'object' && route !== null && 'name' in route) {
+      return route.name;
+    }
+    return '-';
   };
 
   const getAccountColor = (accountType: string) => {
@@ -559,10 +587,10 @@ export default function AccountsDetailPage() {
                         {selectedAccount === 'fuel' && (
                           <>
                             <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {(typeof entry.driver === 'object' && entry.driver?.name) || entry.driver || '-'}
+                              {getDriverName(entry.driver)}
                             </td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {(typeof entry.route === 'object' && entry.route?.name) || entry.route || '-'}
+                              {getRouteName(entry.route)}
                             </td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
                               {entry.liters || '-'}
@@ -572,10 +600,10 @@ export default function AccountsDetailPage() {
                         {selectedAccount === 'income' && (
                           <>
                             <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {(typeof entry.driver === 'object' && entry.driver?.name) || entry.driver || '-'}
+                              {getDriverName(entry.driver)}
                             </td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {(typeof entry.route === 'object' && entry.route?.name) || entry.route || '-'}
+                              {getRouteName(entry.route)}
                             </td>
                             <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
                               {entry.quantity || '-'}
