@@ -12,27 +12,54 @@ interface Route {
   name: string;
 }
 
+interface Truck {
+  id: number;
+  plate_number: string;
+  truck_type?: {
+    id: number;
+    name: string;
+  } | null;
+  company?: string | null;
+}
+
+interface TruckType {
+  id: number;
+  name: string;
+}
+
 export default function DriverRouteManager() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
+  const [trucks, setTrucks] = useState<Truck[]>([]);
+  const [truckTypes, setTruckTypes] = useState<TruckType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // Modal state
   const [showDriverModal, setShowDriverModal] = useState(false);
   const [showRouteModal, setShowRouteModal] = useState(false);
+  const [showTruckModal, setShowTruckModal] = useState(false);
   const [driverName, setDriverName] = useState('');
   const [routeName, setRouteName] = useState('');
+  const [truckPlateNumber, setTruckPlateNumber] = useState('');
+  const [truckTypeId, setTruckTypeId] = useState<number | ''>('');
+  const [truckCompany, setTruckCompany] = useState('');
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [editingRoute, setEditingRoute] = useState<Route | null>(null);
+  const [editingTruck, setEditingTruck] = useState<Truck | null>(null);
 
   const cancelModal = useCallback(() => {
     setDriverName('');
     setRouteName('');
+    setTruckPlateNumber('');
+    setTruckTypeId('');
+    setTruckCompany('');
     setEditingDriver(null);
     setEditingRoute(null);
+    setEditingTruck(null);
     setShowDriverModal(false);
     setShowRouteModal(false);
+    setShowTruckModal(false);
     setError(null);
   }, []);
 
@@ -43,7 +70,7 @@ export default function DriverRouteManager() {
   // Handle click outside modal to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showDriverModal || showRouteModal) {
+      if (showDriverModal || showRouteModal || showTruckModal) {
         const target = event.target as HTMLElement;
         if (target.classList.contains('bg-black/50')) {
           cancelModal();
@@ -53,23 +80,29 @@ export default function DriverRouteManager() {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showDriverModal, showRouteModal, cancelModal]);
+  }, [showDriverModal, showRouteModal, showTruckModal, cancelModal]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
       
-      const [driversRes, routesRes] = await Promise.all([
+      const [driversRes, routesRes, trucksRes, truckTypesRes] = await Promise.all([
         fetch(`${apiUrl}/api/v1/drivers/`),
-        fetch(`${apiUrl}/api/v1/routes/`)
+        fetch(`${apiUrl}/api/v1/routes/`),
+        fetch(`${apiUrl}/api/v1/trucks/`),
+        fetch(`${apiUrl}/api/v1/truck-types/`)
       ]);
 
-      if (driversRes.ok && routesRes.ok) {
+      if (driversRes.ok && routesRes.ok && trucksRes.ok && truckTypesRes.ok) {
         const driversData = await driversRes.json();
         const routesData = await routesRes.json();
+        const trucksData = await trucksRes.json();
+        const truckTypesData = await truckTypesRes.json();
         setDrivers(driversData);
         setRoutes(routesData);
+        setTrucks(trucksData);
+        setTruckTypes(truckTypesData);
       } else {
         setError('Failed to load data');
       }
@@ -269,6 +302,124 @@ export default function DriverRouteManager() {
     setShowRouteModal(true);
   };
 
+  const handleAddTruck = async () => {
+    if (!truckPlateNumber.trim()) {
+      setError('Plate number cannot be empty');
+      return;
+    }
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const body: any = {
+        plate_number: truckPlateNumber.trim(),
+        company: truckCompany.trim() || null,
+      };
+      
+      if (truckTypeId !== '') {
+        body.truck_type_id = truckTypeId;
+      }
+      
+      const response = await fetch(`${apiUrl}/api/v1/trucks/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        const newTruck = await response.json();
+        setTrucks([...trucks, newTruck]);
+        setTruckPlateNumber('');
+        setTruckTypeId('');
+        setTruckCompany('');
+        setShowTruckModal(false);
+        setError(null);
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to add truck');
+      }
+    } catch (err) {
+      setError('Network error');
+      console.error('Add truck error:', err);
+    }
+  };
+
+  const handleUpdateTruck = async () => {
+    if (!truckPlateNumber.trim() || !editingTruck) {
+      setError('Plate number cannot be empty');
+      return;
+    }
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const body: any = {
+        plate_number: truckPlateNumber.trim(),
+        company: truckCompany.trim() || null,
+      };
+      
+      if (truckTypeId !== '') {
+        body.truck_type_id = truckTypeId;
+      }
+      
+      const response = await fetch(`${apiUrl}/api/v1/trucks/${editingTruck.id}/`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        const updatedTruck = await response.json();
+        setTrucks(trucks.map(t => t.id === updatedTruck.id ? updatedTruck : t));
+        setTruckPlateNumber('');
+        setTruckTypeId('');
+        setTruckCompany('');
+        setEditingTruck(null);
+        setShowTruckModal(false);
+        setError(null);
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to update truck');
+      }
+    } catch (err) {
+      setError('Network error');
+      console.error('Update truck error:', err);
+    }
+  };
+
+  const handleDeleteTruck = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this truck?')) {
+      return;
+    }
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiUrl}/api/v1/trucks/${id}/`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setTrucks(trucks.filter(t => t.id !== id));
+        setError(null);
+      } else {
+        setError('Failed to delete truck');
+      }
+    } catch (err) {
+      setError('Network error');
+      console.error('Delete truck error:', err);
+    }
+  };
+
+  const startEditTruck = (truck: Truck) => {
+    setEditingTruck(truck);
+    setTruckPlateNumber(truck.plate_number);
+    setTruckTypeId(truck.truck_type?.id || '');
+    setTruckCompany(truck.company || '');
+    setShowTruckModal(true);
+  };
+
   if (loading) {
     return (
       <div className="animate-pulse">
@@ -281,7 +432,7 @@ export default function DriverRouteManager() {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Box 1: Add Driver */}
         <div
           onClick={() => {
@@ -315,6 +466,26 @@ export default function DriverRouteManager() {
             </div>
             <h3 className="text-white text-2xl font-bold">Add Route</h3>
             <p className="text-white/90 text-sm mt-2">{routes.length} routes</p>
+          </div>
+        </div>
+
+        {/* Box 3: Add Truck */}
+        <div
+          onClick={() => {
+            setEditingTruck(null);
+            setTruckPlateNumber('');
+            setTruckTypeId('');
+            setTruckCompany('');
+            setShowTruckModal(true);
+          }}
+          className="cursor-pointer bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-2xl p-8 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center justify-center"
+        >
+          <div className="text-center">
+            <div className="w-16 h-16 rounded-2xl bg-white/20 border-2 border-white/30 flex items-center justify-center mx-auto mb-4">
+              <span className="text-white text-3xl">🚛</span>
+            </div>
+            <h3 className="text-white text-2xl font-bold">Add Truck</h3>
+            <p className="text-white/90 text-sm mt-2">{trucks.length} trucks</p>
           </div>
         </div>
       </div>
@@ -383,6 +554,67 @@ export default function DriverRouteManager() {
                 className="flex-1 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl transition-all duration-200 font-semibold"
               >
                 {editingRoute ? 'Update' : 'Add'}
+              </button>
+              <button
+                onClick={cancelModal}
+                className="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl transition-all duration-200 font-semibold"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Truck Modal */}
+      {showTruckModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">
+              {editingTruck ? 'Edit Truck' : 'Add Truck'}
+            </h3>
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+            <input
+              type="text"
+              value={truckPlateNumber}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[\s-]/g, '');
+                setTruckPlateNumber(value);
+              }}
+              placeholder="Plate number"
+              className="w-full px-4 py-3 border-2 border-orange-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 mb-2"
+              autoFocus
+            />
+            <p className="text-xs text-gray-500 mb-4">No spaces or hyphens allowed</p>
+            <select
+              value={truckTypeId}
+              onChange={(e) => setTruckTypeId(e.target.value ? Number(e.target.value) : '')}
+              className="w-full px-4 py-3 border-2 border-orange-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 mb-4"
+            >
+              <option value="">Select truck type (optional)</option>
+              {truckTypes.map((type) => (
+                <option key={type.id} value={type.id}>
+                  {type.name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={truckCompany}
+              onChange={(e) => setTruckCompany(e.target.value)}
+              placeholder="Company (optional)"
+              className="w-full px-4 py-3 border-2 border-orange-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={editingTruck ? handleUpdateTruck : handleAddTruck}
+                className="flex-1 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl transition-all duration-200 font-semibold"
+              >
+                {editingTruck ? 'Update' : 'Add'}
               </button>
               <button
                 onClick={cancelModal}

@@ -19,6 +19,7 @@ interface AccountEntry {
   id: number;
   account_number: string;
   truck_type: string;
+  company?: string;
   account_type: string;
   plate_number: string;
   debit: number;
@@ -54,11 +55,18 @@ export default function AccountsDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<string>('repair_maintenance');
   const [selectedPlateNumber, setSelectedPlateNumber] = useState<string>('all');
+  const [selectedCompany, setSelectedCompany] = useState<string>('all');
+  const [selectedTruckType, setSelectedTruckType] = useState<string>('all');
   const [showAllAccounts, setShowAllAccounts] = useState<boolean>(false);
 
   useEffect(() => {
     fetchAccountsData();
   }, []);
+
+  // Reset plate number filter when company or truck type changes
+  useEffect(() => {
+    setSelectedPlateNumber('all');
+  }, [selectedCompany, selectedTruckType]);
 
   const fetchAccountsData = async () => {
     try {
@@ -118,18 +126,66 @@ export default function AccountsDetailPage() {
     return colorMap[accountType] || 'bg-gray-50 border-gray-200 text-gray-800';
   };
 
-  // Get unique plate numbers from all accounts
-  const getUniquePlateNumbers = () => {
+  // Get unique companies from all accounts
+  const getUniqueCompanies = () => {
     if (!accountsData) return [];
-    const plateNumbers = new Set<string>();
+    const companies = new Set<string>();
     Object.values(accountsData.accounts).forEach(account => {
       account.entries.forEach(entry => {
-        if (entry.plate_number) {
-          plateNumbers.add(entry.plate_number);
+        if (entry.company && entry.company.trim() !== '') {
+          companies.add(entry.company);
         }
       });
     });
-    return Array.from(plateNumbers).sort();
+    return Array.from(companies).sort();
+  };
+
+  // Get unique truck types from all accounts
+  const getUniqueTruckTypes = () => {
+    if (!accountsData) return [];
+    const truckTypes = new Set<string>();
+    Object.values(accountsData.accounts).forEach(account => {
+      account.entries.forEach(entry => {
+        if (entry.truck_type && entry.truck_type.trim() !== '') {
+          truckTypes.add(entry.truck_type);
+        }
+      });
+    });
+    return Array.from(truckTypes).sort();
+  };
+
+  // Get unique plate numbers filtered by company and truck type
+  const getUniquePlateNumbers = () => {
+    if (!accountsData) return [];
+    
+    // First, build a map of plate number -> { company, truck_type }
+    const plateInfoMap = new Map<string, { company?: string; truck_type: string }>();
+    
+    Object.values(accountsData.accounts).forEach(account => {
+      account.entries.forEach(entry => {
+        if (entry.plate_number) {
+          if (!plateInfoMap.has(entry.plate_number)) {
+            plateInfoMap.set(entry.plate_number, {
+              company: entry.company,
+              truck_type: entry.truck_type
+            });
+          }
+        }
+      });
+    });
+
+    // Filter plate numbers based on selected company and truck type
+    const filteredPlates: string[] = [];
+    plateInfoMap.forEach((info, plateNumber) => {
+      const companyMatch = selectedCompany === 'all' || info.company === selectedCompany;
+      const truckTypeMatch = selectedTruckType === 'all' || info.truck_type === selectedTruckType;
+      
+      if (companyMatch && truckTypeMatch) {
+        filteredPlates.push(plateNumber);
+      }
+    });
+
+    return filteredPlates.sort();
   };
 
   // Filter entries based on selected plate number
@@ -252,7 +308,37 @@ export default function AccountsDetailPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              {/* Company Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Company</label>
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => setSelectedCompany(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                >
+                  <option value="all">All Companies</option>
+                  {getUniqueCompanies().map(company => (
+                    <option key={company} value={company}>{company}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Truck Type Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Truck Type</label>
+                <select
+                  value={selectedTruckType}
+                  onChange={(e) => setSelectedTruckType(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                >
+                  <option value="all">All Truck Types</option>
+                  {getUniqueTruckTypes().map(truckType => (
+                    <option key={truckType} value={truckType}>{truckType}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Plate Number Filter */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Plate Number</label>
@@ -260,12 +346,16 @@ export default function AccountsDetailPage() {
                   value={selectedPlateNumber}
                   onChange={(e) => setSelectedPlateNumber(e.target.value)}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                  disabled={getUniquePlateNumbers().length === 0 && (selectedCompany !== 'all' || selectedTruckType !== 'all')}
                 >
                   <option value="all">All Plate Numbers</option>
                   {getUniquePlateNumbers().map(plateNumber => (
                     <option key={plateNumber} value={plateNumber}>{plateNumber}</option>
                   ))}
                 </select>
+                {getUniquePlateNumbers().length === 0 && (selectedCompany !== 'all' || selectedTruckType !== 'all') && (
+                  <p className="mt-1 text-xs text-gray-500">No plate numbers match the selected filters</p>
+                )}
               </div>
 
               {/* All Accounts Toggle */}
@@ -520,32 +610,24 @@ export default function AccountsDetailPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ref #
                       </th>
-                      {selectedAccount === 'fuel' && (
-                        <>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Driver
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Route
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Liters
-                          </th>
-                        </>
-                      )}
-                      {selectedAccount === 'income' && (
-                        <>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Driver
-                        </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Route
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Quantity
-                          </th>
-                        </>
-                      )}
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Trip/Route
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Driver
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Fuel Liters
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Fuel Amount
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Front Load
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Back Load
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Remarks
                       </th>
@@ -584,32 +666,24 @@ export default function AccountsDetailPage() {
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
                           {entry.reference_number}
                         </td>
-                        {selectedAccount === 'fuel' && (
-                          <>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {getDriverName(entry.driver)}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {getRouteName(entry.route)}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {entry.liters || '-'}
-                            </td>
-                          </>
-                        )}
-                        {selectedAccount === 'income' && (
-                          <>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {getDriverName(entry.driver)}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {getRouteName(entry.route)}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                              {entry.quantity || '-'}
-                            </td>
-                          </>
-                        )}
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                          {getRouteName(entry.route) || '-'}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                          {getDriverName(entry.driver)}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 text-right">
+                          {entry.liters ? entry.liters.toFixed(2) : '-'}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 text-right">
+                          {entry.price ? formatCurrency(entry.price) : '-'}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                          {entry.front_load || '-'}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                          {entry.back_load || '-'}
+                        </td>
                         <td className="px-4 py-2 text-sm text-gray-700 max-w-xs truncate">
                           {entry.remarks}
                         </td>
@@ -675,6 +749,24 @@ export default function AccountsDetailPage() {
                         Ref #
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Trip/Route
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Driver
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Fuel Liters
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Fuel Amount
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Front Load
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Back Load
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Remarks
                       </th>
                     </tr>
@@ -717,6 +809,24 @@ export default function AccountsDetailPage() {
                           </td>
                           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
                             {entry.reference_number}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                            {getRouteName(entry.route) || '-'}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                            {getDriverName(entry.driver)}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 text-right">
+                            {entry.liters ? entry.liters.toFixed(2) : '-'}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 text-right">
+                            {entry.price ? formatCurrency(entry.price) : '-'}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                            {entry.front_load || '-'}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                            {entry.back_load || '-'}
                           </td>
                           <td className="px-4 py-2 text-sm text-gray-700 max-w-xs truncate">
                             {entry.remarks}

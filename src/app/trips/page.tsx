@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import SkeletonLoader from '@/components/SkeletonLoader';
+import TransferModal from '@/components/TransferModal';
+import { Toaster, toast } from 'react-hot-toast';
 
 interface DriverObject {
   id?: number;
@@ -15,12 +17,23 @@ interface RouteObject {
   name: string;
 }
 
+interface TruckObject {
+  id: number;
+  plate_number: string;
+  truck_type: {
+    id: number;
+    name: string;
+  } | null;
+  company: string | null;
+}
+
 interface TruckingRecord {
   id: number;
   account_number: string;
-  account_type: string;
-  truck_type: string;
-  plate_number: string | null;
+  account_type: string | { id: number; name: string };
+  truck_type?: string; // deprecated, use truck.truck_type instead
+  plate_number?: string | null; // deprecated, use truck.plate_number instead
+  truck?: TruckObject | null;
   description: string;
   debit: number;
   credit: number;
@@ -32,13 +45,14 @@ interface TruckingRecord {
   price: number | null;
   driver?: string | DriverObject | null;
   route?: string | RouteObject | null;
-  front_load: string | null;
-  back_load: string | null;
+  front_load: string | { id: number; name: string } | null;
+  back_load: string | { id: number; name: string } | null;
 }
 
 interface Trip {
   plate_number: string;
   truck_type: string;
+  company: string;
   date: string;
   trip_route: string;
   driver: string;
@@ -56,9 +70,7 @@ interface Trip {
   income: number;
   other_income: number;
   remarks: string;
-  insurance_expense: number;
-  repairs_maintenance_expense: number;
-  taxes_permits_licenses_expense: number;
+  remarks_array: string[]; // Array to store all remarks for combining
   salaries_allowance: number;
   account_types: string[];
 }
@@ -76,11 +88,25 @@ export default function TripsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedTruck, setSelectedTruck] = useState<string>('all');
   const [selectedTruckType, setSelectedTruckType] = useState<string>('all');
+  const [selectedCompany, setSelectedCompany] = useState<string>('all');
+  const [loadTypes, setLoadTypes] = useState<{ id: number; name: string }[]>([]);
+
+  // Drag and drop state for allowance transfer
+  const [draggedAllowance, setDraggedAllowance] = useState<{ trip: Trip; index: number } | null>(null);
+  const [targetTripInfo, setTargetTripInfo] = useState<{ plateNumber: string; date: string } | null>(null);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferDetails, setTransferDetails] = useState<{
+    source: { plateNumber: string; date: string; entries: any[] };
+    target: { plateNumber: string; date: string; entries: any[] };
+  } | null>(null);
+  const [loadingEntries, setLoadingEntries] = useState(false);
+
 
   // Filter states for all columns
   const [filters, setFilters] = useState({
     plateNumber: '',
     date: '',
+    month: '', // Month filter (YYYY-MM format)
     tripRoute: '',
     driver: '',
     allowance: { min: '', max: '' },
@@ -92,29 +118,50 @@ export default function TripsPage() {
     backLoad: '',
     backLoadAmount: { min: '', max: '' },
     income: { min: '', max: '' },
-    remarks: '',
-    insuranceExpense: { min: '', max: '' },
-    repairsMaintenanceExpense: { min: '', max: '' },
-    taxesPermitsExpense: { min: '', max: '' }
+    remarks: ''
   });
+
 
   useEffect(() => {
     fetchTripsData();
+    fetchLoadTypes();
   }, []);
 
-  // Reset truck filter when truck type changes
+
+  const fetchLoadTypes = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiUrl}/api/v1/load-types/`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch load types');
+      }
+      
+      const data = await response.json();
+      setLoadTypes(data);
+    } catch (err) {
+      console.error('Error fetching load types:', err);
+      // Don't set error state, just log it - we'll fall back to unique values
+    }
+  };
+
+  // Reset truck filter when truck type or company changes
   useEffect(() => {
-    if (selectedTruckType !== 'all') {
-      // Check if current selected truck is still valid for the new truck type
+    if (selectedTruckType !== 'all' || selectedCompany !== 'all') {
+      // Check if current selected truck is still valid for the new truck type/company
       const validTrucks = tripsData?.trips
-        .filter(trip => trip.truck_type === selectedTruckType)
+        .filter(trip => {
+          const truckTypeMatch = selectedTruckType === 'all' || trip.truck_type === selectedTruckType;
+          const companyMatch = selectedCompany === 'all' || trip.company === selectedCompany;
+          return truckTypeMatch && companyMatch;
+        })
         .map(trip => trip.plate_number) || [];
       
       if (selectedTruck !== 'all' && !validTrucks.includes(selectedTruck)) {
         setSelectedTruck('all');
       }
     }
-  }, [selectedTruckType, selectedTruck, tripsData]);
+  }, [selectedTruckType, selectedCompany, selectedTruck, tripsData]);
 
   // Filter update functions
   const updateFilter = (key: string, value: any) => {
@@ -124,10 +171,104 @@ export default function TripsPage() {
     }));
   };
 
+  // Handle updating trip route, driver, front load, or back load in a row
+  const handleTripFieldUpdate = async (
+    trip: Trip, 
+    field: 'trip_route' | 'driver' | 'front_load' | 'back_load', 
+    value: string
+  ) => {
+    if (!tripsData) return;
+    
+    // Store original state for rollback on error
+    const originalTripsData = tripsData;
+    
+    // Find the trip in the original tripsData using plate_number and date as unique identifier
+    const updatedTrips = tripsData.trips.map(t => {
+      if (t.plate_number === trip.plate_number && t.date === trip.date) {
+        const updatedTrip = { ...t };
+        const newValue = value === '' ? '' : value;
+        
+        if (field === 'trip_route') {
+          updatedTrip.trip_route = newValue;
+        } else if (field === 'driver') {
+          updatedTrip.driver = newValue;
+        } else if (field === 'front_load') {
+          updatedTrip.front_load = newValue;
+        } else if (field === 'back_load') {
+          updatedTrip.back_load = newValue;
+        }
+        
+        return updatedTrip;
+      }
+      return t;
+    });
+    
+    // Update local state immediately for responsive UI (optimistic update)
+    setTripsData({
+      ...tripsData,
+      trips: updatedTrips
+    });
+    
+    // Update backend asynchronously without page reload
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      
+      // Normalize date to YYYY-MM-DD format
+      const normalizeDate = (dateStr: string) => {
+        if (!dateStr) return '';
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return dateStr;
+        }
+        const dateObj = new Date(dateStr);
+        if (!isNaN(dateObj.getTime())) {
+          const year = dateObj.getFullYear();
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+        return dateStr;
+      };
+      
+      const normalizedDate = normalizeDate(trip.date);
+      
+      const response = await fetch(`${apiUrl}/api/v1/trips/update-field/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          plate_number: trip.plate_number,
+          date: normalizedDate,
+          field: field,
+          value: value === '' ? '' : value
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to update trip field' }));
+        throw new Error(errorData.error || 'Failed to update trip field');
+      }
+      
+      const result = await response.json();
+      
+      // Show success toast (silent update, no need for loud notification)
+      // toast.success(result.message || `Successfully updated ${field}`);
+      
+    } catch (err) {
+      // Revert local state on error
+      setTripsData(originalTripsData);
+      
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update trip field';
+      toast.error(errorMessage);
+      console.error('Error updating trip field:', err);
+    }
+  };
+
   const clearAllFilters = () => {
     setFilters({
       plateNumber: '',
       date: '',
+      month: '',
       tripRoute: '',
       driver: '',
       allowance: { min: '', max: '' },
@@ -139,19 +280,18 @@ export default function TripsPage() {
       backLoad: '',
       backLoadAmount: { min: '', max: '' },
       income: { min: '', max: '' },
-      remarks: '',
-      insuranceExpense: { min: '', max: '' },
-      repairsMaintenanceExpense: { min: '', max: '' },
-      taxesPermitsExpense: { min: '', max: '' }
+      remarks: ''
     });
     setSelectedTruck('all');
     setSelectedTruckType('all');
+    setSelectedCompany('all');
   };
 
   // Check if any filters are active
   const hasActiveFilters = () => {
     return selectedTruck !== 'all' || 
            selectedTruckType !== 'all' ||
+           selectedCompany !== 'all' ||
            Object.values(filters).some(filter => {
              if (typeof filter === 'string') {
                return filter !== '';
@@ -212,6 +352,24 @@ export default function TripsPage() {
     return '';
   };
 
+  const getAccountTypeName = (accountType: string | { id: number; name: string } | null | undefined): string => {
+    if (!accountType) return '';
+    if (typeof accountType === 'string') return accountType;
+    if (typeof accountType === 'object' && accountType !== null && 'name' in accountType) {
+      return accountType.name;
+    }
+    return '';
+  };
+
+  const getLoadTypeName = (loadType: string | { id: number; name: string } | null | undefined): string => {
+    if (!loadType) return '';
+    if (typeof loadType === 'string') return loadType;
+    if (typeof loadType === 'object' && loadType !== null && 'name' in loadType) {
+      return loadType.name;
+    }
+    return '';
+  };
+
   const processTruckingData = (data: TruckingRecord[]): TripsData => {
     // Group by plate number and date
     const tripMap = new Map<string, Trip>();
@@ -226,9 +384,19 @@ export default function TripsPage() {
       }
 
       // Handle records without plate number - use a default identifier
+      // Use truck object if available, fallback to old fields for backward compatibility
       let plateNumber = 'NO_PLATE';
-      if (record.plate_number && record.plate_number.trim() !== '' && record.plate_number.toLowerCase() !== 'nan') {
+      let truckType = '';
+      let company = '';
+      
+      if (record.truck && record.truck.plate_number) {
+        plateNumber = standardizePlateNumber(record.truck.plate_number);
+        truckType = record.truck.truck_type?.name || '';
+        company = record.truck.company || '';
+      } else if (record.plate_number && record.plate_number.trim() !== '' && record.plate_number.toLowerCase() !== 'nan') {
         plateNumber = standardizePlateNumber(record.plate_number);
+        truckType = record.truck_type || '';
+        company = '';
       }
 
       const date = record.date;
@@ -238,7 +406,8 @@ export default function TripsPage() {
       if (!tripMap.has(tripKey)) {
         tripMap.set(tripKey, {
           plate_number: plateNumber === 'NO_PLATE' ? 'No Plate Number' : plateNumber,
-          truck_type: record.truck_type || '',
+          truck_type: truckType,
+          company: company,
           date: date,
           trip_route: '',
           driver: '',
@@ -256,9 +425,7 @@ export default function TripsPage() {
           income: 0,
           other_income: 0,
           remarks: '',
-          insurance_expense: 0,
-          repairs_maintenance_expense: 0,
-          taxes_permits_licenses_expense: 0,
+          remarks_array: [], // Array to collect all remarks
           salaries_allowance: 0,
           account_types: [],
         });
@@ -286,35 +453,72 @@ export default function TripsPage() {
       }
 
       // Process based on account type
-      const accountTypeLower = record.account_type.toLowerCase();
+      const accountTypeName = getAccountTypeName(record.account_type);
+      const accountTypeLower = accountTypeName.toLowerCase();
+
+      // Collect remarks ONLY for specific account types (Fuel and Oil, Driver's Allowance, Hauling Income)
+      // Check for these three account types specifically and exclude all others
+      const isFuelAndOil = accountTypeLower.includes('fuel') && accountTypeLower.includes('oil');
+      // Check for Driver's Allowance - handle both with and without apostrophe
+      const isDriverAllowance = (accountTypeLower.includes('driver') && accountTypeLower.includes('allowance')) ||
+                                accountTypeLower.includes("driver's allowance") ||
+                                accountTypeLower.includes("drivers allowance");
+      // Check for Hauling Income
+      const isHaulingIncome = accountTypeLower.includes('hauling') && accountTypeLower.includes('income');
+      
+      // Only collect remarks for these three specific account types, exclude everything else
+      const shouldCollectRemarks = isFuelAndOil || isDriverAllowance || isHaulingIncome;
+      
+      // Only collect remarks for the three specified account types, exclude all others
+      if (shouldCollectRemarks) {
+        if (record.remarks && record.remarks.trim() !== '') {
+          // Add remark if not already in array (to avoid duplicates)
+          const trimmedRemark = record.remarks.trim();
+          if (!trip.remarks_array.includes(trimmedRemark)) {
+            trip.remarks_array.push(trimmedRemark);
+          }
+        }
+      }
 
       if (accountTypeLower.includes('hauling income')) {
-        // Check if this is Rice Hull Ton - if so, add to other_income instead of regular income
-        if (record.remarks && record.remarks.toLowerCase().includes('rice hull ton')) {
-          trip.other_income += finalTotal;
+        // Check if this is Rice Hull Ton - if so, treat as front_load
+        const isRiceHullTon = record.remarks && record.remarks.toLowerCase().includes('rice hull ton');
+        
+        if (isRiceHullTon) {
+          // Treat Rice Hull Ton as front_load
+          trip.front_load = 'Rice Hull Ton';
+          trip.front_load_amount += finalTotal;
+          if (record.reference_number && !trip.front_load_reference_numbers.includes(record.reference_number)) {
+            trip.front_load_reference_numbers.push(record.reference_number);
+          }
+          // Don't add to income or other_income since it's now treated as front_load
         } else {
           // Add hauling income to trip income (excluding Rice Hull Ton)
           trip.income += finalTotal;
         }
         
-        // Handle Hauling Income - loads
-        const hasFrontLoad = record.front_load && 
-          record.front_load.trim() !== '' && 
-          record.front_load.toLowerCase() !== 'nan' &&
-          record.front_load.toLowerCase() !== 'n' &&
-          record.front_load.toLowerCase() !== 'none';
+        // Handle Hauling Income - loads (only if not Rice Hull Ton)
+        if (!isRiceHullTon) {
+        const frontLoadName = getLoadTypeName(record.front_load);
+        const backLoadName = getLoadTypeName(record.back_load);
         
-        const hasBackLoad = record.back_load && 
-          record.back_load.trim() !== '' && 
-          record.back_load.toLowerCase() !== 'nan' &&
-          record.back_load.toLowerCase() !== 'none';
+        const hasFrontLoad = frontLoadName && 
+          frontLoadName.trim() !== '' && 
+          frontLoadName.toLowerCase() !== 'nan' &&
+          frontLoadName.toLowerCase() !== 'n' &&
+          frontLoadName.toLowerCase() !== 'none';
+        
+        const hasBackLoad = backLoadName && 
+          backLoadName.trim() !== '' && 
+          backLoadName.toLowerCase() !== 'nan' &&
+          backLoadName.toLowerCase() !== 'none';
 
         // Special case: If front_load is "Strike", all amount goes to back_load
-        if (hasFrontLoad && record.front_load && record.front_load.toLowerCase() === 'strike') {
+        if (hasFrontLoad && frontLoadName.toLowerCase() === 'strike') {
           // Strike case - all amount goes to back load, front load amount stays 0
           trip.back_load_amount += finalTotal;
-          if (record.front_load) trip.front_load = record.front_load;
-          if (record.back_load) trip.back_load = record.back_load;
+          trip.front_load = frontLoadName;
+          trip.back_load = backLoadName;
           if (record.reference_number && !trip.back_load_reference_numbers.includes(record.reference_number)) {
             trip.back_load_reference_numbers.push(record.reference_number);
           }
@@ -324,8 +528,8 @@ export default function TripsPage() {
           trip.front_load_amount += halfAmount;
           trip.back_load_amount += halfAmount;
           
-          if (record.front_load) trip.front_load = record.front_load;
-          if (record.back_load) trip.back_load = record.back_load;
+          trip.front_load = frontLoadName;
+          trip.back_load = backLoadName;
           if (record.reference_number && !trip.front_load_reference_numbers.includes(record.reference_number)) {
             trip.front_load_reference_numbers.push(record.reference_number);
           }
@@ -335,16 +539,17 @@ export default function TripsPage() {
         } else if (hasFrontLoad) {
           // Only front load
           trip.front_load_amount += finalTotal;
-          if (record.front_load) trip.front_load = record.front_load;
+          trip.front_load = frontLoadName;
           if (record.reference_number && !trip.front_load_reference_numbers.includes(record.reference_number)) {
             trip.front_load_reference_numbers.push(record.reference_number);
           }
         } else if (hasBackLoad) {
           // Only back load
           trip.back_load_amount += finalTotal;
-          if (record.back_load) trip.back_load = record.back_load;
+          trip.back_load = backLoadName;
           if (record.reference_number && !trip.back_load_reference_numbers.includes(record.reference_number)) {
             trip.back_load_reference_numbers.push(record.reference_number);
+            }
           }
         }
       } 
@@ -359,21 +564,10 @@ export default function TripsPage() {
         // Handle Driver's Allowance
         trip.allowance += finalTotal;
         trip.salaries_allowance += finalTotal;
-      } else if (accountTypeLower.includes('insurance')) {
-        // Handle Insurance
-        trip.insurance_expense += finalTotal;
-      } else if (accountTypeLower.includes('repair') || accountTypeLower.includes('maintenance')) {
-        // Handle Repairs & Maintenance
-        trip.repairs_maintenance_expense += finalTotal;
-      } else if (accountTypeLower.includes('tax') || accountTypeLower.includes('permit') || accountTypeLower.includes('license')) {
-        // Handle Taxes/Permits/Licenses
-        trip.taxes_permits_licenses_expense += finalTotal;
       }
 
-      // Add remarks from first record
-      if (!trip.remarks && record.remarks) {
-        trip.remarks = record.remarks;
-      }
+      // Combine all collected remarks at the end
+      // For now, we'll set the combined remarks string after processing all records
     });
 
     // Check for fuel inconsistencies - records with same date/plate but different fuel amounts
@@ -384,7 +578,8 @@ export default function TripsPage() {
         return;
       }
       
-      const accountTypeLower = record.account_type.toLowerCase();
+      const accountTypeName = getAccountTypeName(record.account_type);
+      const accountTypeLower = accountTypeName.toLowerCase();
       if (accountTypeLower.includes('fuel')) {
         let plateNumber = 'NO_PLATE';
         if (record.plate_number && record.plate_number.trim() !== '' && record.plate_number.toLowerCase() !== 'nan') {
@@ -415,9 +610,22 @@ export default function TripsPage() {
       }
     });
 
-    // Calculate front_and_back_load_amount and convert to array
+    // Calculate front_and_back_load_amount and combine remarks
     const trips = Array.from(tripMap.values()).map(trip => {
       trip.front_and_back_load_amount = trip.front_load_amount + trip.back_load_amount;
+      
+      // Keep remarks as array for bullet point display
+      if (trip.remarks_array.length > 0) {
+        // Remove duplicates and filter out empty strings
+        const uniqueRemarks = Array.from(new Set(trip.remarks_array.filter(r => r && r.trim() !== '')));
+        trip.remarks_array = uniqueRemarks; // Keep as array for bullet rendering
+        trip.remarks = uniqueRemarks.join('\n'); // Also keep as string for backward compatibility
+      } else {
+        // Fallback to original remarks if no remarks were collected in array
+        trip.remarks = trip.remarks || '';
+        trip.remarks_array = trip.remarks ? [trip.remarks] : [];
+      }
+      
       return trip;
     });
 
@@ -440,6 +648,233 @@ export default function TripsPage() {
       style: 'currency',
       currency: 'PHP',
     }).format(amount);
+  };
+
+  // Fetch allowance entries for a specific plate number and date from trucking endpoint
+  const fetchAllowanceEntries = async (plateNumber: string, date: string) => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiUrl}/api/v1/trucking/`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch trucking data');
+      }
+      
+      const allRecords: TruckingRecord[] = await response.json();
+      
+      // Filter by account type "Driver's Allowance", plate number and date
+      const standardizedPlate = standardizePlateNumber(plateNumber);
+      
+      // Normalize date format - convert to YYYY-MM-DD for comparison
+      const normalizeDate = (dateStr: string) => {
+        if (!dateStr) return '';
+        // If already in YYYY-MM-DD format, return as is
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return dateStr;
+        }
+        // Try to parse other formats (MM/DD/YYYY, etc.)
+        const dateObj = new Date(dateStr);
+        if (!isNaN(dateObj.getTime())) {
+          const year = dateObj.getFullYear();
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+        return dateStr;
+      };
+      
+      const normalizedDate = normalizeDate(date);
+      
+      const filtered = allRecords.filter(record => {
+        // Check if it's a Driver's Allowance account type
+        const accountTypeName = getAccountTypeName(record.account_type);
+        const isDriverAllowance = accountTypeName.toLowerCase().includes('driver') && 
+                                  accountTypeName.toLowerCase().includes('allowance');
+        
+        if (!isDriverAllowance) return false;
+        
+        // Handle plate_number - check both truck object and old plate_number field
+        let entryPlate: string | null = null;
+        
+        if (record.truck && record.truck.plate_number) {
+          entryPlate = record.truck.plate_number;
+        } else if (record.plate_number && record.plate_number.trim() !== '' && record.plate_number.toLowerCase() !== 'nan') {
+          entryPlate = record.plate_number;
+        }
+        
+        if (!entryPlate) return false;
+        
+        const standardizedEntryPlate = standardizePlateNumber(entryPlate);
+        const plateMatch = standardizedEntryPlate === standardizedPlate;
+        
+        // Handle date - normalize both dates for comparison
+        const entryDate = record.date || '';
+        const normalizedEntryDate = normalizeDate(entryDate);
+        const dateMatch = normalizedEntryDate === normalizedDate;
+        
+        return plateMatch && dateMatch;
+      });
+      
+      // Convert to format expected by modal (similar to allowance entries)
+      const formattedEntries = filtered.map(record => ({
+        id: record.id,
+        account_number: record.account_number,
+        reference_number: record.reference_number,
+        date: record.date,
+        description: record.description,
+        remarks: record.remarks,
+        final_total: record.final_total,
+        debit: record.debit,
+        credit: record.credit
+      }));
+      
+      console.log('Fetching allowance entries:', {
+        plateNumber,
+        standardizedPlate,
+        date,
+        normalizedDate,
+        totalRecords: allRecords.length,
+        filteredCount: filtered.length,
+        formattedCount: formattedEntries.length
+      });
+      
+      return formattedEntries;
+    } catch (err) {
+      console.error('Error fetching allowance entries:', err);
+      return [];
+    }
+  };
+
+  // Handle drag start for allowance
+  const handleAllowanceDragStart = (e: React.DragEvent, trip: Trip, index: number) => {
+    if (trip.allowance > 0) {
+      setDraggedAllowance({ trip, index });
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+    }
+  };
+
+  // Handle drag over for date cells
+  const handleDateDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  // Handle drop on date cell
+  const handleDateDrop = async (e: React.DragEvent, targetTrip: Trip, targetIndex: number) => {
+    e.preventDefault();
+    
+    if (!draggedAllowance) return;
+    
+    const sourceTrip = draggedAllowance.trip;
+    
+    // Don't allow dropping on the same trip
+    if (sourceTrip.plate_number === targetTrip.plate_number && sourceTrip.date === targetTrip.date) {
+      setDraggedAllowance(null);
+      return;
+    }
+
+    // Store target trip info for modal display
+    setTargetTripInfo({
+      plateNumber: targetTrip.plate_number,
+      date: targetTrip.date
+    });
+
+    // Fetch source and target allowance entries
+    setLoadingEntries(true);
+    setShowTransferModal(true);
+    
+    try {
+      const sourceEntries = await fetchAllowanceEntries(sourceTrip.plate_number, sourceTrip.date);
+      const targetEntries = await fetchAllowanceEntries(targetTrip.plate_number, targetTrip.date);
+      
+      setTransferDetails({
+        source: {
+          plateNumber: sourceTrip.plate_number,
+          date: sourceTrip.date,
+          entries: sourceEntries
+        },
+        target: {
+          plateNumber: targetTrip.plate_number,
+          date: targetTrip.date,
+          entries: targetEntries
+        }
+      });
+    } catch (err) {
+      console.error('Error fetching entries:', err);
+      toast.error('Failed to load allowance entries');
+      setShowTransferModal(false);
+      setTargetTripInfo(null);
+    } finally {
+      setLoadingEntries(false);
+      setDraggedAllowance(null);
+    }
+  };
+
+  // Handle transfer confirmation
+  const handleTransferConfirm = async (details: typeof transferDetails) => {
+    if (!details) return;
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      
+      // Normalize dates to YYYY-MM-DD format
+      const normalizeDate = (dateStr: string) => {
+        if (!dateStr) return '';
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return dateStr;
+        }
+        const dateObj = new Date(dateStr);
+        if (!isNaN(dateObj.getTime())) {
+          const year = dateObj.getFullYear();
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+        return dateStr;
+      };
+      
+      const sourceDate = normalizeDate(details.source.date);
+      const targetDate = normalizeDate(details.target.date);
+      
+      // Get entry IDs to transfer
+      const entryIds = details.source.entries.map(entry => entry.id).filter(id => id);
+      
+      const response = await fetch(`${apiUrl}/api/v1/allowance/transfer/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          source_plate_number: details.source.plateNumber,
+          source_date: sourceDate,
+          target_plate_number: details.target.plateNumber,
+          target_date: targetDate,
+          entry_ids: entryIds.length > 0 ? entryIds : undefined
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to transfer allowance entries' }));
+        throw new Error(errorData.error || 'Failed to transfer allowance entries');
+      }
+      
+      const result = await response.json();
+      
+      toast.success(result.message || `Successfully transferred ${result.transferred_count} allowance entries`);
+      
+      // Refresh trips data
+      await fetchTripsData();
+      
+      // Close modal
+      setShowTransferModal(false);
+      setTransferDetails(null);
+      setTargetTripInfo(null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to transfer allowance entries';
+      toast.error(errorMessage);
+      throw err; // Re-throw to let modal handle loading state
+    }
   };
 
   if (loading) {
@@ -488,11 +923,21 @@ export default function TripsPage() {
   // Get unique truck types
   const uniqueTruckTypes = Array.from(new Set(tripsData.trips.map(trip => trip.truck_type))).sort();
   
-  // Get unique truck plate numbers based on selected truck type
-  const uniqueTrucks = selectedTruckType === 'all' 
+  // Get unique companies
+  const uniqueCompanies = Array.from(new Set(tripsData.trips
+    .map(trip => trip.company)
+    .filter(company => company && company.trim() !== '')
+  )).sort();
+  
+  // Get unique truck plate numbers based on selected truck type and company
+  const uniqueTrucks = (selectedTruckType === 'all' && selectedCompany === 'all')
     ? Array.from(new Set(tripsData.trips.map(trip => trip.plate_number))).sort()
     : Array.from(new Set(tripsData.trips
-        .filter(trip => trip.truck_type === selectedTruckType)
+        .filter(trip => {
+          const truckTypeMatch = selectedTruckType === 'all' || trip.truck_type === selectedTruckType;
+          const companyMatch = selectedCompany === 'all' || trip.company === selectedCompany;
+          return truckTypeMatch && companyMatch;
+        })
         .map(trip => trip.plate_number)
       )).sort();
 
@@ -523,20 +968,112 @@ export default function TripsPage() {
     .filter(remark => remark && remark.trim() !== '')
   )).sort();
 
+  // Helper function to check if a trip has any meaningful data
+  const hasMeaningfulData = (trip: Trip): boolean => {
+    // Check if any data column has a value
+    // Filter out rows where all data columns are empty/zero
+    return (
+      trip.allowance > 0 ||
+      trip.fuel_liters > 0 ||
+      trip.fuel_price > 0 ||
+      trip.front_load_amount > 0 ||
+      trip.back_load_amount > 0 ||
+      trip.front_and_back_load_amount > 0 ||
+      trip.income > 0 ||
+      trip.other_income > 0 ||
+      trip.salaries_allowance > 0 ||
+      (trip.trip_route && trip.trip_route.trim() !== '') ||
+      (trip.driver && trip.driver.trim() !== '') ||
+      (trip.front_load && trip.front_load.trim() !== '') ||
+      (trip.back_load && trip.back_load.trim() !== '') ||
+      (trip.remarks && trip.remarks.trim() !== '') ||
+      (trip.reference_numbers && trip.reference_numbers.length > 0)
+    );
+  };
+
   // Filter trips based on all filters
   const filteredTrips = tripsData.trips.filter(trip => {
-    // Existing truck and truck type filters
+    // First, filter out trips with no meaningful data
+    if (!hasMeaningfulData(trip)) {
+      return false;
+    }
+
+    // Existing truck, truck type, and company filters
     const truckMatch = selectedTruck === 'all' || trip.plate_number === selectedTruck;
     const truckTypeMatch = selectedTruckType === 'all' || trip.truck_type === selectedTruckType;
+    const companyMatch = selectedCompany === 'all' || trip.company === selectedCompany;
     
     // Dropdown filters (exact matches)
     const plateNumberMatch = !filters.plateNumber || trip.plate_number === filters.plateNumber;
-    const dateMatch = !filters.date || trip.date.includes(filters.date);
-    const tripRouteMatch = !filters.tripRoute || trip.trip_route === filters.tripRoute;
+    
+    // Date filter - normalize dates for comparison (for exact date filtering)
+    const normalizeDateForComparison = (dateStr: string): string => {
+      if (!dateStr) return '';
+      // If already in YYYY-MM-DD format, return as is
+      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return dateStr;
+      }
+      // Try to parse other formats (MM/DD/YYYY, DD/MM/YYYY, etc.)
+      try {
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+      } catch (e) {
+        // If parsing fails, return as is
+      }
+      return dateStr;
+    };
+    
+    const dateMatch = !filters.date || (() => {
+      const normalizedFilterDate = normalizeDateForComparison(filters.date);
+      const normalizedTripDate = normalizeDateForComparison(trip.date);
+      // Check for exact match or if the trip date contains the filter date (for partial matches)
+      return normalizedTripDate === normalizedFilterDate || 
+             normalizedTripDate.includes(normalizedFilterDate) ||
+             normalizedFilterDate.includes(normalizedTripDate);
+    })();
+    
+    // Month filter - filter trips by selected month (YYYY-MM format)
+    const monthMatch = !filters.month || (() => {
+      try {
+        const tripDate = new Date(trip.date);
+        if (isNaN(tripDate.getTime())) return false;
+        
+        const tripYear = String(tripDate.getFullYear());
+        const tripMonth = String(tripDate.getMonth() + 1).padStart(2, '0');
+        const tripMonthYear = `${tripYear}-${tripMonth}`;
+        
+        return tripMonthYear === filters.month;
+      } catch (e) {
+        return false;
+      }
+    })();
+    
+    // Trip Route filter - handle "BLANK" option for null/empty values
+    const tripRouteMatch = !filters.tripRoute || 
+      (filters.tripRoute === 'BLANK' 
+        ? (!trip.trip_route || trip.trip_route.trim() === '' || trip.trip_route === '-')
+        : trip.trip_route === filters.tripRoute);
+    
     const driverMatch = !filters.driver || trip.driver === filters.driver;
     const refNumberMatch = !filters.refNumber || trip.reference_numbers.includes(filters.refNumber);
-    const frontLoadMatch = !filters.frontLoad || trip.front_load === filters.frontLoad;
-    const backLoadMatch = !filters.backLoad || trip.back_load === filters.backLoad;
+    
+    // Front Load filter - handle "BLANK" option for null/empty values
+    const frontLoadMatch = !filters.frontLoad || 
+      (filters.frontLoad === 'BLANK' 
+        ? (!trip.front_load || trip.front_load.trim() === '' || trip.front_load === '-')
+        : trip.front_load === filters.frontLoad);
+    
+    // Back Load filter - handle "BLANK" option for null/empty values
+    const backLoadMatch = !filters.backLoad || 
+      (filters.backLoad === 'BLANK' 
+        ? (!trip.back_load || trip.back_load.trim() === '' || trip.back_load === '-')
+        : trip.back_load === filters.backLoad);
+    
     const remarksMatch = !filters.remarks || trip.remarks === filters.remarks;
     
     // Numeric range filters
@@ -552,17 +1089,11 @@ export default function TripsPage() {
       (!filters.backLoadAmount.max || trip.back_load_amount <= parseFloat(filters.backLoadAmount.max));
     const incomeMatch = (!filters.income.min || trip.income >= parseFloat(filters.income.min)) &&
       (!filters.income.max || trip.income <= parseFloat(filters.income.max));
-    const insuranceExpenseMatch = (!filters.insuranceExpense.min || trip.insurance_expense >= parseFloat(filters.insuranceExpense.min)) &&
-      (!filters.insuranceExpense.max || trip.insurance_expense <= parseFloat(filters.insuranceExpense.max));
-    const repairsMaintenanceExpenseMatch = (!filters.repairsMaintenanceExpense.min || trip.repairs_maintenance_expense >= parseFloat(filters.repairsMaintenanceExpense.min)) &&
-      (!filters.repairsMaintenanceExpense.max || trip.repairs_maintenance_expense <= parseFloat(filters.repairsMaintenanceExpense.max));
-    const taxesPermitsExpenseMatch = (!filters.taxesPermitsExpense.min || trip.taxes_permits_licenses_expense >= parseFloat(filters.taxesPermitsExpense.min)) &&
-      (!filters.taxesPermitsExpense.max || trip.taxes_permits_licenses_expense <= parseFloat(filters.taxesPermitsExpense.max));
     
-    return truckMatch && truckTypeMatch && plateNumberMatch && dateMatch && tripRouteMatch && 
+    return truckMatch && truckTypeMatch && companyMatch && plateNumberMatch && dateMatch && monthMatch && tripRouteMatch && 
            driverMatch && refNumberMatch && frontLoadMatch && backLoadMatch && remarksMatch && allowanceMatch && 
            fuelLitersMatch && fuelAmountMatch && frontLoadAmountMatch && backLoadAmountMatch && 
-           incomeMatch && insuranceExpenseMatch && repairsMaintenanceExpenseMatch && taxesPermitsExpenseMatch;
+           incomeMatch;
   });
 
   // Calculate totals for filtered trips
@@ -575,9 +1106,6 @@ export default function TripsPage() {
     front_and_back_load_amount: acc.front_and_back_load_amount + trip.front_and_back_load_amount,
     income: acc.income + trip.income,
     other_income: acc.other_income + trip.other_income,
-    insurance_expense: acc.insurance_expense + trip.insurance_expense,
-    repairs_maintenance_expense: acc.repairs_maintenance_expense + trip.repairs_maintenance_expense,
-    taxes_permits_licenses_expense: acc.taxes_permits_licenses_expense + trip.taxes_permits_licenses_expense,
     salaries_allowance: acc.salaries_allowance + trip.salaries_allowance
   }), {
     allowance: 0,
@@ -588,14 +1116,12 @@ export default function TripsPage() {
     front_and_back_load_amount: 0,
     income: 0,
     other_income: 0,
-    insurance_expense: 0,
-    repairs_maintenance_expense: 0,
-    taxes_permits_licenses_expense: 0,
     salaries_allowance: 0
   });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <Toaster position="top-right" />
       <style jsx>{`
         .elevated-box {
           box-shadow: 
@@ -619,98 +1145,134 @@ export default function TripsPage() {
           backdrop-filter: blur(10px);
           border: 1px solid rgba(255, 255, 255, 0.2);
         }
+        .responsive-container {
+          max-width: 1280px;
+          width: 100%;
+          margin-left: auto;
+          margin-right: auto;
+        }
+        @media (min-width: 1536px) {
+          .responsive-container {
+            max-width: 95%;
+          }
+        }
+        @media (min-width: 2560px) {
+          .responsive-container {
+            max-width: 98%;
+          }
+        }
       `}</style>
       <Navbar />
-      <div className="pt-16 p-8">
-        <div className="max-w-7xl mx-auto">
+      <div className="pt-16 p-4 lg:p-8">
+        <div className="responsive-container">
           {/* Header */}
           <div className="glass-effect rounded-2xl p-8 elevated-box mb-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-6 lg:space-y-0">
+            <div className="flex flex-col space-y-6">
               <div className="flex-1">
                 <h1 className="text-4xl font-bold text-black mb-3">Trips Summary</h1>
                 <p className="text-black text-lg">Consolidated view of all trips from trucking data (same date entries combined per truck)</p>
                 <p className="text-sm text-black mt-2">
                   Total Trips: <span className="font-semibold text-black">{tripsData.total_trips}</span>
-                  {(selectedTruck !== 'all' || selectedTruckType !== 'all') && (
+                  {(selectedTruck !== 'all' || selectedTruckType !== 'all' || selectedCompany !== 'all') && (
                     <span className="ml-2 text-orange-600 font-medium">
                       (Showing {filteredTrips.length} trips
                       {selectedTruck !== 'all' && ` for ${selectedTruck}`}
-                      {selectedTruckType !== 'all' && ` - ${selectedTruckType} type`})
+                      {selectedTruckType !== 'all' && ` - ${selectedTruckType} type`}
+                      {selectedCompany !== 'all' && ` - ${selectedCompany}`})
                     </span>
                   )}
                 </p>
               </div>
-              <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row space-y-4 sm:space-y-0 sm:space-x-4 lg:space-x-0 lg:space-y-4 xl:space-y-0 xl:space-x-4 items-stretch sm:items-center lg:items-stretch xl:items-center">
-                {hasActiveFilters() && (
-                  <button
-                    onClick={clearAllFilters}
-                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl w-full"
-                  >
-                    Clear All Filters
-                  </button>
-                )}
-                <div className="flex flex-col w-full">
-                  <label htmlFor="truck-filter" className="text-sm font-semibold text-black mb-2">
-                    Filter by Truck
-                  </label>
-                  <select
-                    id="truck-filter"
-                    value={selectedTruck}
-                    onChange={(e) => setSelectedTruck(e.target.value)}
-                    className="px-4 py-3 border-2 border-orange-500 text-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-600 font-semibold cursor-pointer hover:border-orange-600 transition-all duration-200 w-full"
-                  >
-                  <option value="all">
-                    {selectedTruckType === 'all' 
-                      ? `All Trucks (${tripsData.total_trips} trips)` 
-                      : `All ${selectedTruckType} Trucks (${uniqueTrucks.length} trucks)`
-                    }
-                  </option>
-                  {uniqueTrucks.map((truck) => {
-                    const truckTrips = tripsData.trips.filter(t => 
-                      t.plate_number === truck && 
-                      (selectedTruckType === 'all' || t.truck_type === selectedTruckType)
-                    );
-                    return (
-                      <option key={truck} value={truck}>
-                        {truck} ({truckTrips.length} trips)
+              {/* Filters Section - At bottom of header card */}
+              <div className="border-t border-gray-300 pt-6">
+                <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 items-stretch sm:items-end">
+                  {hasActiveFilters() && (
+                    <button
+                      onClick={clearAllFilters}
+                      className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
+                    >
+                      Clear All Filters
+                    </button>
+                  )}
+                  <div className="flex flex-col flex-1">
+                    <label htmlFor="truck-filter" className="text-sm font-semibold text-black mb-2">
+                      Filter by Truck
+                    </label>
+                    <select
+                      id="truck-filter"
+                      value={selectedTruck}
+                      onChange={(e) => setSelectedTruck(e.target.value)}
+                      className="px-4 py-3 border-2 border-orange-500 text-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-600 font-semibold cursor-pointer hover:border-orange-600 transition-all duration-200 w-full"
+                    >
+                      <option value="all">
+                        {(selectedTruckType === 'all' && selectedCompany === 'all')
+                          ? `All Trucks (${tripsData.total_trips} trips)` 
+                          : `All ${selectedTruckType !== 'all' ? selectedTruckType : ''} ${selectedCompany !== 'all' ? selectedCompany : ''} Trucks (${uniqueTrucks.length} trucks)`.trim()
+                        }
                       </option>
-                    );
-                  })}
-                </select>
-              </div>
-                <div className="flex flex-col w-full">
-                  <label htmlFor="truck-type-filter" className="text-sm font-semibold text-black mb-2">
-                    Filter by Truck Type
-                  </label>
-                  <select
-                    id="truck-type-filter"
-                    value={selectedTruckType}
-                    onChange={(e) => setSelectedTruckType(e.target.value)}
-                    className="px-4 py-3 border-2 border-orange-500 text-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-600 font-semibold cursor-pointer hover:border-orange-600 transition-all duration-200 w-full"
-                  >
-                  <option value="all">All Types ({tripsData.total_trips} trips)</option>
-                  {uniqueTruckTypes.map((truckType) => {
-                    const truckTypeTrips = tripsData.trips.filter(t => t.truck_type === truckType);
-                    return (
-                      <option key={truckType} value={truckType}>
-                        {truckType} ({truckTypeTrips.length} trips)
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-                {/* <Link
-                  href="/dashboard"
-                  className="px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200 self-end"
-                >
-                  Back to Dashboard
-                </Link>
-                <button
-                  onClick={fetchTripsData}
-                  className="px-4 py-2 bg-gradient-to-r from-black to-orange-600 hover:from-gray-800 hover:to-orange-700 text-white rounded-md transition-all duration-200 self-end"
-                >
-                  Refresh Data
-                </button> */}
+                      {uniqueTrucks.map((truck) => {
+                        const truckTrips = tripsData.trips.filter(t => 
+                          t.plate_number === truck && 
+                          (selectedTruckType === 'all' || t.truck_type === selectedTruckType) &&
+                          (selectedCompany === 'all' || t.company === selectedCompany)
+                        );
+                        return (
+                          <option key={truck} value={truck}>
+                            {truck} ({truckTrips.length} trips)
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div className="flex flex-col flex-1">
+                    <label htmlFor="truck-type-filter" className="text-sm font-semibold text-black mb-2">
+                      Filter by Truck Type
+                    </label>
+                    <select
+                      id="truck-type-filter"
+                      value={selectedTruckType}
+                      onChange={(e) => setSelectedTruckType(e.target.value)}
+                      className="px-4 py-3 border-2 border-orange-500 text-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-600 font-semibold cursor-pointer hover:border-orange-600 transition-all duration-200 w-full"
+                    >
+                      <option value="all">All Types ({tripsData.total_trips} trips)</option>
+                      {uniqueTruckTypes.map((truckType) => {
+                        const truckTypeTrips = tripsData.trips.filter(t => 
+                          t.truck_type === truckType &&
+                          (selectedCompany === 'all' || t.company === selectedCompany)
+                        );
+                        return (
+                          <option key={truckType} value={truckType}>
+                            {truckType} ({truckTypeTrips.length} trips)
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div className="flex flex-col flex-1">
+                    <label htmlFor="company-filter" className="text-sm font-semibold text-black mb-2">
+                      Filter by Company
+                    </label>
+                    <select
+                      id="company-filter"
+                      value={selectedCompany}
+                      onChange={(e) => setSelectedCompany(e.target.value)}
+                      className="px-4 py-3 border-2 border-orange-500 text-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-600 font-semibold cursor-pointer hover:border-orange-600 transition-all duration-200 w-full"
+                    >
+                      <option value="all">All Companies ({tripsData.total_trips} trips)</option>
+                      {uniqueCompanies.map((company) => {
+                        const companyTrips = tripsData.trips.filter(t => 
+                          t.company === company &&
+                          (selectedTruckType === 'all' || t.truck_type === selectedTruckType)
+                        );
+                        return (
+                          <option key={company} value={company}>
+                            {company} ({companyTrips.length} trips)
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -719,13 +1281,14 @@ export default function TripsPage() {
           <div className="gradient-card rounded-2xl shadow-2xl border border-gray-200 overflow-hidden elevated-box">
             <div className="px-8 py-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
               <h2 className="text-2xl font-bold text-black mb-2">
-                {(selectedTruck === 'all' && selectedTruckType === 'all') ? 'All Trips' : 'Filtered Trips'}
+                {(selectedTruck === 'all' && selectedTruckType === 'all' && selectedCompany === 'all') ? 'All Trips' : 'Filtered Trips'}
               </h2>
-              {(selectedTruck !== 'all' || selectedTruckType !== 'all') && (
+              {(selectedTruck !== 'all' || selectedTruckType !== 'all' || selectedCompany !== 'all') && (
                 <p className="text-black">
                   Showing {filteredTrips.length} of {tripsData.total_trips} total trips
                   {selectedTruck !== 'all' && ` for ${selectedTruck}`}
                   {selectedTruckType !== 'all' && ` (${selectedTruckType} type)`}
+                  {selectedCompany !== 'all' && ` - ${selectedCompany}`}
                 </p>
               )}
               <p className="text-sm text-black mt-2 lg:hidden">
@@ -734,18 +1297,18 @@ export default function TripsPage() {
           </div>
           
             <div className="overflow-x-auto overflow-y-auto max-h-[100vh]">
-              <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ minWidth: '1200px' }}>
+              <table className="w-full divide-y divide-gray-200 text-sm">
                 {/* Filter Row */}
                 <thead className="bg-gradient-to-r from-gray-100 to-gray-200 sticky top-0 z-20">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       #
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       <select
                         value={filters.plateNumber}
                         onChange={(e) => updateFilter('plateNumber', e.target.value)}
-                        className="w-full px-2 py-1 text-xs bg-white border border-orange-500 rounded text-gray-800 focus:outline-none focus:ring-1 focus:ring-orange-300 focus:border-orange-600 font-medium"
+                        className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                       >
                         <option value="">All Plate #s</option>
                         {uniquePlateNumbers.map((plate) => (
@@ -755,13 +1318,23 @@ export default function TripsPage() {
                         ))}
                       </select>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      <input
-                        type="date"
-                        value={filters.date}
-                        onChange={(e) => updateFilter('date', e.target.value)}
-                        className="w-full px-2 py-1 text-xs bg-white border border-orange-500 rounded text-gray-800 focus:outline-none focus:ring-1 focus:ring-orange-300 focus:border-orange-600 font-medium"
-                      />
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      <div className="flex flex-col gap-1">
+                        <input
+                          type="date"
+                          value={filters.date}
+                          onChange={(e) => updateFilter('date', e.target.value)}
+                          className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-400"
+                          placeholder="Select date"
+                        />
+                        {/* <input
+                          type="month"
+                          value={filters.month}
+                          onChange={(e) => updateFilter('month', e.target.value)}
+                          className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder-gray-400"
+                          placeholder="Select month"
+                        /> */}
+                      </div>
                     </th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       <select
@@ -770,6 +1343,7 @@ export default function TripsPage() {
                         className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                       >
                         <option value="">All Routes</option>
+                        <option value="BLANK">Blank</option>
                         {uniqueTripRoutes.map((route) => (
                           <option key={route} value={route}>
                             {route}
@@ -869,6 +1443,7 @@ export default function TripsPage() {
                         className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                       >
                         <option value="">All Front Loads</option>
+                        <option value="BLANK">Blank</option>
                         {uniqueFrontLoads.map((load) => (
                           <option key={load} value={load}>
                             {load}
@@ -901,6 +1476,7 @@ export default function TripsPage() {
                         className="w-full px-2 py-1 text-xs bg-black/40 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                       >
                         <option value="">All Back Loads</option>
+                        <option value="BLANK">Blank</option>
                         {uniqueBackLoads.map((load) => (
                           <option key={load} value={load}>
                             {load}
@@ -947,10 +1523,7 @@ export default function TripsPage() {
                         />
                       </div>
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                      Other Income
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[300px]">
                       <select
                         value={filters.remarks}
                         onChange={(e) => updateFilter('remarks', e.target.value)}
@@ -963,60 +1536,6 @@ export default function TripsPage() {
                           </option>
                         ))}
                       </select>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                      <div className="flex space-x-1">
-                        <input
-                          type="number"
-                          placeholder="Min"
-                          value={filters.insuranceExpense.min}
-                          onChange={(e) => updateFilter('insuranceExpense', { ...filters.insuranceExpense, min: e.target.value })}
-                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Max"
-                          value={filters.insuranceExpense.max}
-                          onChange={(e) => updateFilter('insuranceExpense', { ...filters.insuranceExpense, max: e.target.value })}
-                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        />
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                      <div className="flex space-x-1">
-                        <input
-                          type="number"
-                          placeholder="Min"
-                          value={filters.repairsMaintenanceExpense.min}
-                          onChange={(e) => updateFilter('repairsMaintenanceExpense', { ...filters.repairsMaintenanceExpense, min: e.target.value })}
-                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Max"
-                          value={filters.repairsMaintenanceExpense.max}
-                          onChange={(e) => updateFilter('repairsMaintenanceExpense', { ...filters.repairsMaintenanceExpense, max: e.target.value })}
-                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        />
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                      <div className="flex space-x-1">
-                        <input
-                          type="number"
-                          placeholder="Min"
-                          value={filters.taxesPermitsExpense.min}
-                          onChange={(e) => updateFilter('taxesPermitsExpense', { ...filters.taxesPermitsExpense, min: e.target.value })}
-                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Max"
-                          value={filters.taxesPermitsExpense.max}
-                          onChange={(e) => updateFilter('taxesPermitsExpense', { ...filters.taxesPermitsExpense, max: e.target.value })}
-                          className="w-16 px-1 py-1 text-xs bg-black/40 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        />
-                      </div>
                     </th>
                   </tr>
                 </thead>
@@ -1074,20 +1593,8 @@ export default function TripsPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Income
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Other Income
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[300px]">
                       Remarks
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Insurance Exp
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Repairs & Maint Exp
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Taxes/Permits Exp
                     </th>
                     {/* <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Salaries/Allowance
@@ -1106,16 +1613,61 @@ export default function TripsPage() {
                       <td className="px-4 py-3 whitespace-nowrap text-black font-semibold">
                         {trip.plate_number}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-black">
+                      <td 
+                        className="px-4 py-3 whitespace-nowrap text-black"
+                        onDragOver={handleDateDragOver}
+                        onDrop={(e) => handleDateDrop(e, trip, index)}
+                        style={{ cursor: draggedAllowance ? 'copy' : 'default' }}
+                      >
                         {trip.date}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-black">
-                        {trip.trip_route || '-'}
+                      <td className="px-4 py-3 text-black min-w-[150px]">
+                        <select
+                          value={trip.trip_route || ''}
+                          onChange={(e) => handleTripFieldUpdate(trip, 'trip_route', e.target.value)}
+                          className="w-full min-w-[120px] px-2 py-1 text-xs bg-white border border-gray-300 rounded text-black focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                          style={{ width: '100%', minWidth: '120px' }}
+                        >
+                          <option value="">Blank</option>
+                          {uniqueTripRoutes.map((route) => (
+                            <option key={route} value={route}>
+                              {route}
+                            </option>
+                          ))}
+                          {/* Add current value if it's not in the unique list */}
+                          {trip.trip_route && !uniqueTripRoutes.includes(trip.trip_route) && (
+                            <option value={trip.trip_route}>{trip.trip_route}</option>
+                          )}
+                        </select>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-black">
-                        {trip.driver || '-'}
+                      <td className="px-4 py-3 text-black min-w-[150px]">
+                        <select
+                          value={trip.driver || ''}
+                          onChange={(e) => handleTripFieldUpdate(trip, 'driver', e.target.value)}
+                          className="w-full min-w-[120px] px-2 py-1 text-xs bg-white border border-gray-300 rounded text-black focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                          style={{ width: '100%', minWidth: '120px' }}
+                        >
+                          <option value="">Blank</option>
+                          {uniqueDrivers.map((driver) => (
+                            <option key={driver} value={driver}>
+                              {driver}
+                            </option>
+                          ))}
+                          {/* Add current value if it's not in the unique list */}
+                          {trip.driver && !uniqueDrivers.includes(trip.driver) && (
+                            <option value={trip.driver}>{trip.driver}</option>
+                          )}
+                        </select>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-black text-right">
+                      <td 
+                        className={`px-4 py-3 whitespace-nowrap text-black text-right ${trip.allowance > 0 ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                        draggable={trip.allowance > 0}
+                        onDragStart={(e) => handleAllowanceDragStart(e, trip, index)}
+                        style={{ 
+                          userSelect: trip.allowance > 0 ? 'none' : 'auto',
+                          opacity: draggedAllowance?.index === index ? 0.5 : 1
+                        }}
+                      >
                         {trip.allowance > 0 ? formatCurrency(trip.allowance) : '-'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-black">
@@ -1130,14 +1682,46 @@ export default function TripsPage() {
                       <td className="px-4 py-3 whitespace-nowrap text-orange-600 font-semibold text-right">
                         {trip.fuel_price > 0 ? formatCurrency(trip.fuel_price) : '-'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-black">
-                        {trip.front_load || '-'}
+                      <td className="px-4 py-3 text-black min-w-[150px]">
+                        <select
+                          value={trip.front_load || ''}
+                          onChange={(e) => handleTripFieldUpdate(trip, 'front_load', e.target.value)}
+                          className="w-full min-w-[120px] px-2 py-1 text-xs bg-white border border-gray-300 rounded text-black focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                          style={{ width: '100%', minWidth: '120px' }}
+                        >
+                          <option value="">Blank</option>
+                          {loadTypes.map((loadType: { id: number; name: string }) => (
+                            <option key={loadType.id} value={loadType.name}>
+                              {loadType.name}
+                            </option>
+                          ))}
+                          {/* Add current value if it's not in the load types list */}
+                          {trip.front_load && !loadTypes.some((lt: { id: number; name: string }) => lt.name === trip.front_load) && (
+                            <option value={trip.front_load}>{trip.front_load}</option>
+                          )}
+                        </select>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-blue-600 font-semibold text-right">
                         {trip.front_load_amount > 0 ? formatCurrency(trip.front_load_amount) : '-'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-black">
-                        {trip.back_load || '-'}
+                      <td className="px-4 py-3 text-black min-w-[150px]">
+                        <select
+                          value={trip.back_load || ''}
+                          onChange={(e) => handleTripFieldUpdate(trip, 'back_load', e.target.value)}
+                          className="w-full min-w-[120px] px-2 py-1 text-xs bg-white border border-gray-300 rounded text-black focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                          style={{ width: '100%', minWidth: '120px' }}
+                        >
+                          <option value="">Blank</option>
+                          {loadTypes.map((loadType: { id: number; name: string }) => (
+                            <option key={loadType.id} value={loadType.name}>
+                              {loadType.name}
+                            </option>
+                          ))}
+                          {/* Add current value if it's not in the load types list */}
+                          {trip.back_load && !loadTypes.some((lt: { id: number; name: string }) => lt.name === trip.back_load) && (
+                            <option value={trip.back_load}>{trip.back_load}</option>
+                          )}
+                        </select>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-green-600 font-semibold text-right">
                         {trip.back_load_amount > 0 ? formatCurrency(trip.back_load_amount) : '-'}
@@ -1148,20 +1732,18 @@ export default function TripsPage() {
                       <td className="px-4 py-3 whitespace-nowrap text-green-600 font-bold text-right">
                         {trip.income > 0 ? formatCurrency(trip.income) : '-'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-yellow-600 font-bold text-right">
-                        {trip.other_income > 0 ? formatCurrency(trip.other_income) : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-black max-w-xs truncate">
-                        {trip.remarks || '-'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-red-600 text-right">
-                        {trip.insurance_expense > 0 ? formatCurrency(trip.insurance_expense) : '-'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-red-600 text-right">
-                        {trip.repairs_maintenance_expense > 0 ? formatCurrency(trip.repairs_maintenance_expense) : '-'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-red-600 text-right">
-                        {trip.taxes_permits_licenses_expense > 0 ? formatCurrency(trip.taxes_permits_licenses_expense) : '-'}
+                      <td className="px-4 py-3 text-black min-w-[300px] max-w-2xl whitespace-normal">
+                        {trip.remarks_array && trip.remarks_array.length > 0 ? (
+                          <ul className="list-disc list-inside space-y-1">
+                            {trip.remarks_array.map((remark, idx) => (
+                              <li key={idx} className="break-words">
+                                {remark}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          '-'
+                        )}
                       </td>
                       {/* <td className="px-3 py-2 whitespace-nowrap text-red-400">
                         {trip.salaries_allowance > 0 ? formatCurrency(trip.salaries_allowance) : '-'}
@@ -1170,11 +1752,13 @@ export default function TripsPage() {
                   ))}
                   {/* Totals Row */}
                   <tr className="bg-gradient-to-r from-gray-100 to-gray-200 font-bold">
-                    <td colSpan={6} className="px-4 py-4 text-right text-black">
+                    <td colSpan={5} className="px-4 py-4 text-right text-black">
                       TOTALS:
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-black text-right">
                       {formatCurrency(totals.allowance)}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-black text-right">
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-black text-right">
                       {totals.fuel_liters.toFixed(2)}
@@ -1198,19 +1782,7 @@ export default function TripsPage() {
                     <td className="px-4 py-4 whitespace-nowrap text-green-600 text-right">
                       {formatCurrency(totals.income)}
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-yellow-600 text-right">
-                      {formatCurrency(totals.other_income)}
-                    </td>
                     <td className="px-4 py-4"></td>
-                    <td className="px-4 py-4 whitespace-nowrap text-red-600 text-right">
-                      {formatCurrency(totals.insurance_expense)}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-red-600 text-right">
-                      {formatCurrency(totals.repairs_maintenance_expense)}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-red-600 text-right">
-                      {formatCurrency(totals.taxes_permits_licenses_expense)}
-                    </td>
                     {/* <td className="px-3 py-3 whitespace-nowrap text-red-400">
                       {formatCurrency(totals.salaries_allowance)}
                     </td> */}
@@ -1221,6 +1793,24 @@ export default function TripsPage() {
           </div>
         </div>
       </div>
+
+      {/* Transfer Modal */}
+      <TransferModal
+        isOpen={showTransferModal}
+        transferDetails={transferDetails}
+        loadingEntries={loadingEntries}
+        sourcePlateNumber={draggedAllowance?.trip?.plate_number || transferDetails?.source?.plateNumber}
+        sourceDate={draggedAllowance?.trip?.date || transferDetails?.source?.date}
+        targetPlateNumber={targetTripInfo?.plateNumber || transferDetails?.target?.plateNumber}
+        targetDate={targetTripInfo?.date || transferDetails?.target?.date}
+        onClose={() => {
+          setShowTransferModal(false);
+          setTransferDetails(null);
+          setDraggedAllowance(null);
+          setTargetTripInfo(null);
+        }}
+        onConfirm={handleTransferConfirm}
+      />
     </div>
   );
 }

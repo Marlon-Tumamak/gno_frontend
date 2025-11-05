@@ -6,6 +6,8 @@ import * as XLSX from 'xlsx';
 interface UploadResponse {
   message: string;
   created_count: number;
+  updated_count?: number;
+  error_count?: number;
   parsing_stats?: {
     drivers_extracted: number;
     routes_extracted: number;
@@ -114,9 +116,13 @@ const uploadTypes = [
     label: 'Trucking Account',
     endpoint: 'trucking/upload/',
     columns: [
-      'AccountNumber', 'AccountType', 'TruckType', 'PlateNumber', 'Description',
-      'Debit', 'Credit', 'FinalTotal', 'Remarks', 'ReferenceNumber', 'Date',
-      'Quantity', 'Price', 'Driver', 'Route', 'Front_Load', 'Back_Load'
+      'Account (parsed: AccountNumber, AccountType, TruckType, PlateNumber)',
+      'Type (description)',
+      'Date',
+      'Remarks (parsed: Driver, Route, Front Load, Back Load)',
+      'RR No. (reference number)',
+      'Debit',
+      'Credit'
     ]
   },
   {
@@ -127,6 +133,14 @@ const uploadTypes = [
       'AccountNumber', 'AccountType', 'TruckType', 'PlateNumber', 'Description',
       'Debit', 'Credit', 'FinalTotal', 'Remarks', 'ReferenceNumber', 'Date',
       'Quantity', 'Price', 'Driver', 'Route', 'Front_Load', 'Back_Load'
+    ]
+  },
+  {
+    value: 'trucks',
+    label: 'Trucks',
+    endpoint: 'trucks/upload/',
+    columns: [
+      'TRUCK PLATE', 'Truck Type', 'Company'
     ]
   }
 ];
@@ -610,6 +624,12 @@ export default function ExcelUpload() {
             </h3>
             <div className="text-sm text-green-700">
               <p>✅ Successfully created: {response.created_count} records</p>
+              {response.updated_count !== undefined && response.updated_count > 0 && (
+                <p>🔄 Successfully updated: {response.updated_count} records</p>
+              )}
+              {response.error_count !== undefined && response.error_count > 0 && (
+                <p className="text-red-600">❌ Errors: {response.error_count}</p>
+              )}
               {response.errors && response.errors.length > 0 && (
                 <p className="text-red-600">❌ Errors: {response.errors.length}</p>
               )}

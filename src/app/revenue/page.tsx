@@ -112,33 +112,60 @@ export default function RevenuePage() {
 
     filteredAccounts.forEach((account: any) => {
       const finalTotal = parseFloat(account.final_total?.toString() || '0');
-      const accountType = account.account_type?.toLowerCase() || '';
+      // Handle account_type as nested object or string
+      const accountType = account.account_type?.name?.toLowerCase() || account.account_type?.toLowerCase() || '';
 
       if (accountType.includes('hauling income')) {
-        // Use the same calculation as the backend (revenue_streams)
+        // Use the same calculation as the trips page
         const route = (typeof account.route === 'object' && account.route?.name) || account.route || '';
-        const frontLoad = account.front_load?.toString() || '';
-        const backLoad = account.back_load?.toString() || '';
         
-        // Check if it's Rice Hull Ton (other income)
-        if (account.remarks?.toLowerCase().includes('rice hull ton')) {
-          otherIncomeAmount += finalTotal;
+        // Helper function to extract load type name (same as trips page)
+        const getLoadTypeName = (loadType: string | { id: number; name: string } | null | undefined): string => {
+          if (!loadType) return '';
+          if (typeof loadType === 'string') return loadType;
+          if (typeof loadType === 'object' && loadType !== null && 'name' in loadType) {
+            return loadType.name;
+          }
+          return '';
+        };
+        
+        const frontLoadName = getLoadTypeName(account.front_load);
+        const backLoadName = getLoadTypeName(account.back_load);
+        
+        // Validate loads (same as trips page)
+        const hasFrontLoad = frontLoadName && 
+          frontLoadName.trim() !== '' && 
+          frontLoadName.toLowerCase() !== 'nan' &&
+          frontLoadName.toLowerCase() !== 'n' &&
+          frontLoadName.toLowerCase() !== 'none';
+        
+        const hasBackLoad = backLoadName && 
+          backLoadName.trim() !== '' && 
+          backLoadName.toLowerCase() !== 'nan' &&
+          backLoadName.toLowerCase() !== 'none';
+        
+        // Check if it's Rice Hull Ton - if so, treat as front_load
+        const isRiceHullTon = account.remarks?.toLowerCase().includes('rice hull ton');
+        
+        if (isRiceHullTon) {
+          // Treat Rice Hull Ton as front_load
+          frontloadAmount += finalTotal;
         } else {
-          // Apply backend logic for frontload/backload categorization
-          if (frontLoad.includes('Strike')) {
-            // If front_load is Strike, amount goes to back_load
+          // Apply same logic as trips page for frontload/backload categorization
+          // Special case: If front_load is "Strike", all amount goes to back_load
+          if (hasFrontLoad && frontLoadName.toLowerCase() === 'strike') {
+            // Strike case - all amount goes to back load
             backloadAmount += finalTotal;
-          } else if (backLoad.includes('Strike')) {
-            // If back_load is Strike, amount goes to front_load
-            frontloadAmount += finalTotal;
-          } else if (frontLoad && backLoad) {
-            // Split amount between front and back
+          } else if (hasFrontLoad && hasBackLoad) {
+            // Both loads present - split amount
             const halfAmount = finalTotal / 2;
             frontloadAmount += halfAmount;
             backloadAmount += halfAmount;
-          } else if (frontLoad) {
+          } else if (hasFrontLoad) {
+            // Only front load
             frontloadAmount += finalTotal;
-          } else if (backLoad) {
+          } else if (hasBackLoad) {
+            // Only back load
             backloadAmount += finalTotal;
           }
         }
@@ -160,8 +187,8 @@ export default function RevenuePage() {
       }
     });
 
-    // Calculate total revenue using the same formula as the top cards
-    totalRevenue = frontloadAmount + backloadAmount + otherIncomeAmount;
+    // Calculate total revenue (frontload + backload)
+    totalRevenue = frontloadAmount + backloadAmount;
 
     const grossProfit = totalRevenue - totalExpenses;
     const netProfit = grossProfit - totalOpex;
@@ -209,9 +236,11 @@ export default function RevenuePage() {
 
     // Filter by truck if not 'all'
     if (selectedTruck !== 'all') {
-      filteredAccounts = filteredAccounts.filter((account: any) => 
-        account.plate_number === selectedTruck
-      );
+      filteredAccounts = filteredAccounts.filter((account: any) => {
+        // Handle both old format (plate_number) and new format (truck.plate_number)
+        const plateNumber = (account.truck && account.truck.plate_number) || account.plate_number;
+        return plateNumber === selectedTruck;
+      });
     }
 
     let totalRevenue = 0;
@@ -225,29 +254,58 @@ export default function RevenuePage() {
 
     filteredAccounts.forEach((account: any) => {
       const finalTotal = parseFloat(account.final_total?.toString() || '0');
-      const accountType = account.account_type?.toLowerCase() || '';
+      // Handle account_type as nested object or string
+      const accountType = account.account_type?.name?.toLowerCase() || account.account_type?.toLowerCase() || '';
 
       if (accountType.includes('hauling income')) {
-        // Use the same calculation as calculateOverallSummary
-        const frontLoad = account.front_load?.toString() || '';
-        const backLoad = account.back_load?.toString() || '';
+        // Use the same calculation as the trips page
+        // Helper function to extract load type name (same as trips page)
+        const getLoadTypeName = (loadType: string | { id: number; name: string } | null | undefined): string => {
+          if (!loadType) return '';
+          if (typeof loadType === 'string') return loadType;
+          if (typeof loadType === 'object' && loadType !== null && 'name' in loadType) {
+            return loadType.name;
+          }
+          return '';
+        };
         
-        // Check if it's Rice Hull Ton (other income)
-        if (account.remarks?.toLowerCase().includes('rice hull ton')) {
-          otherIncomeAmount += finalTotal;
+        const frontLoadName = getLoadTypeName(account.front_load);
+        const backLoadName = getLoadTypeName(account.back_load);
+        
+        // Validate loads (same as trips page)
+        const hasFrontLoad = frontLoadName && 
+          frontLoadName.trim() !== '' && 
+          frontLoadName.toLowerCase() !== 'nan' &&
+          frontLoadName.toLowerCase() !== 'n' &&
+          frontLoadName.toLowerCase() !== 'none';
+        
+        const hasBackLoad = backLoadName && 
+          backLoadName.trim() !== '' && 
+          backLoadName.toLowerCase() !== 'nan' &&
+          backLoadName.toLowerCase() !== 'none';
+        
+        // Check if it's Rice Hull Ton - if so, treat as front_load
+        const isRiceHullTon = account.remarks?.toLowerCase().includes('rice hull ton');
+        
+        if (isRiceHullTon) {
+          // Treat Rice Hull Ton as front_load
+          frontloadAmount += finalTotal;
         } else {
-          // Apply backend logic for frontload/backload categorization
-          if (frontLoad.includes('Strike')) {
+          // Apply same logic as trips page for frontload/backload categorization
+          // Special case: If front_load is "Strike", all amount goes to back_load
+          if (hasFrontLoad && frontLoadName.toLowerCase() === 'strike') {
+            // Strike case - all amount goes to back load
             backloadAmount += finalTotal;
-          } else if (backLoad.includes('Strike')) {
-            frontloadAmount += finalTotal;
-          } else if (frontLoad && backLoad) {
+          } else if (hasFrontLoad && hasBackLoad) {
+            // Both loads present - split amount
             const halfAmount = finalTotal / 2;
             frontloadAmount += halfAmount;
             backloadAmount += halfAmount;
-          } else if (frontLoad) {
+          } else if (hasFrontLoad) {
+            // Only front load
             frontloadAmount += finalTotal;
-          } else if (backLoad) {
+          } else if (hasBackLoad) {
+            // Only back load
             backloadAmount += finalTotal;
           }
         }
@@ -270,7 +328,7 @@ export default function RevenuePage() {
     });
 
     // Calculate total revenue using the same formula
-    totalRevenue = frontloadAmount + backloadAmount + otherIncomeAmount;
+    totalRevenue = frontloadAmount + backloadAmount;
 
     const grossProfit = totalRevenue - totalExpenses;
     const netProfit = grossProfit - totalOpex;
@@ -330,8 +388,10 @@ export default function RevenuePage() {
 
     const trucks = new Set<string>();
     accounts.forEach((account: any) => {
-      if (account.plate_number) {
-        trucks.add(account.plate_number);
+      // Handle both old format (plate_number) and new format (truck.plate_number)
+      const plateNumber = (account.truck && account.truck.plate_number) || account.plate_number;
+      if (plateNumber) {
+        trucks.add(plateNumber);
       }
     });
 
@@ -405,29 +465,58 @@ export default function RevenuePage() {
 
     accounts.forEach((account: any) => {
       const finalTotal = parseFloat(account.final_total?.toString() || '0');
-      const accountType = account.account_type?.toLowerCase() || '';
+      // Handle account_type as nested object or string
+      const accountType = account.account_type?.name?.toLowerCase() || account.account_type?.toLowerCase() || '';
 
       if (accountType.includes('hauling income')) {
-        const frontLoad = account.front_load?.toString() || '';
-        const backLoad = account.back_load?.toString() || '';
-        const remarks = account.remarks || '';
+        // Use the same calculation as the trips page
+        // Helper function to extract load type name (same as trips page)
+        const getLoadTypeName = (loadType: string | { id: number; name: string } | null | undefined): string => {
+          if (!loadType) return '';
+          if (typeof loadType === 'string') return loadType;
+          if (typeof loadType === 'object' && loadType !== null && 'name' in loadType) {
+            return loadType.name;
+          }
+          return '';
+        };
         
-        // Check if it's Rice Hull Ton (other income)
-        if (remarks.toLowerCase().includes('rice hull ton')) {
-          otherIncomeAmount += finalTotal;
+        const frontLoadName = getLoadTypeName(account.front_load);
+        const backLoadName = getLoadTypeName(account.back_load);
+        
+        // Validate loads (same as trips page)
+        const hasFrontLoad = frontLoadName && 
+          frontLoadName.trim() !== '' && 
+          frontLoadName.toLowerCase() !== 'nan' &&
+          frontLoadName.toLowerCase() !== 'n' &&
+          frontLoadName.toLowerCase() !== 'none';
+        
+        const hasBackLoad = backLoadName && 
+          backLoadName.trim() !== '' && 
+          backLoadName.toLowerCase() !== 'nan' &&
+          backLoadName.toLowerCase() !== 'none';
+        
+        // Check if it's Rice Hull Ton - if so, treat as front_load
+        const isRiceHullTon = account.remarks?.toLowerCase().includes('rice hull ton');
+        
+        if (isRiceHullTon) {
+          // Treat Rice Hull Ton as front_load
+          frontloadAmount += finalTotal;
         } else {
-          // Apply backend logic for frontload/backload categorization
-          if (frontLoad.includes('Strike')) {
+          // Apply same logic as trips page for frontload/backload categorization
+          // Special case: If front_load is "Strike", all amount goes to back_load
+          if (hasFrontLoad && frontLoadName.toLowerCase() === 'strike') {
+            // Strike case - all amount goes to back load
             backloadAmount += finalTotal;
-          } else if (backLoad.includes('Strike')) {
-            frontloadAmount += finalTotal;
-          } else if (frontLoad && backLoad) {
+          } else if (hasFrontLoad && hasBackLoad) {
+            // Both loads present - split amount
             const halfAmount = finalTotal / 2;
             frontloadAmount += halfAmount;
             backloadAmount += halfAmount;
-          } else if (frontLoad) {
+          } else if (hasFrontLoad) {
+            // Only front load
             frontloadAmount += finalTotal;
-          } else if (backLoad) {
+          } else if (hasBackLoad) {
+            // Only back load
             backloadAmount += finalTotal;
           }
         }
@@ -453,7 +542,7 @@ export default function RevenuePage() {
       allowanceAmount,
       fuelAmount,
       totalOpex,
-      totalRevenue: frontloadAmount + backloadAmount + otherIncomeAmount,
+      totalRevenue: frontloadAmount + backloadAmount,
       totalExpenses: allowanceAmount + fuelAmount + totalOpex
     };
   };
@@ -594,20 +683,6 @@ export default function RevenuePage() {
                     {formatCurrency(revenueStreams?.backloadAmount || 0)}
                   </div>
                 </div>
-
-                <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">O</span>
-                    </div>
-                    <div>
-                      <div className="text-gray-800 font-semibold">Other Income</div>
-                    </div>
-                  </div>
-                  <div className="text-green-600 font-bold text-lg">
-                    {formatCurrency(revenueStreams?.otherIncomeAmount || 0)}
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -745,12 +820,6 @@ export default function RevenuePage() {
                             {formatCurrency(calculateOverallSummary()?.backloadAmount || 0)}
                           </span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Other Income</span>
-                          <span className="text-sm font-medium text-green-600">
-                            {formatCurrency(calculateOverallSummary()?.otherIncomeAmount || 0)}
-                          </span>
-                        </div>
                         <div className="border-t border-gray-200 pt-1 mt-1">
                           <div className="flex justify-between">
                             <span className="text-sm font-bold text-gray-800">Total Income</span>
@@ -867,12 +936,6 @@ export default function RevenuePage() {
                           <span className="text-sm text-gray-600">Backload Amount</span>
                           <span className="text-sm font-medium text-green-600">
                             {formatCurrency(calculateFilteredPL()?.backloadAmount || 0)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Other Income</span>
-                          <span className="text-sm font-medium text-green-600">
-                            {formatCurrency(calculateFilteredPL()?.otherIncomeAmount || 0)}
                           </span>
                         </div>
                         <div className="border-t border-gray-200 pt-1 mt-1">

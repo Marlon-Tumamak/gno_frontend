@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import SkeletonLoader from '@/components/SkeletonLoader';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function Analytics() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -13,8 +15,11 @@ export default function Analytics() {
   const [tripsData, setTripsData] = useState<any>(null);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);
+  const [trucks, setTrucks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // Default to current month (YYYY-MM)
+  const [clearingData, setClearingData] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -33,15 +38,36 @@ export default function Analytics() {
     }
   }, [router]);
 
+
+  // Helper functions to handle nested objects
+  const getAccountTypeName = (accountType: any): string => {
+    if (!accountType) return '';
+    if (typeof accountType === 'string') return accountType;
+    if (typeof accountType === 'object' && accountType !== null && 'name' in accountType) {
+      return accountType.name;
+    }
+    return '';
+  };
+
+  const getDriverName = (driver: any): string => {
+    if (!driver) return '';
+    if (typeof driver === 'string') return driver;
+    if (typeof driver === 'object' && driver !== null && 'name' in driver) {
+      return driver.name;
+    }
+    return '';
+  };
+
   const fetchData = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
       
       // Fetch all data in parallel
-      const [truckingRes, driversRes, routesRes] = await Promise.all([
+      const [truckingRes, driversRes, routesRes, trucksRes] = await Promise.all([
         fetch(`${apiUrl}/api/v1/trucking/`),
         fetch(`${apiUrl}/api/v1/drivers/`),
-        fetch(`${apiUrl}/api/v1/routes/`)
+        fetch(`${apiUrl}/api/v1/routes/`),
+        fetch(`${apiUrl}/api/v1/trucks/`)
       ]);
       
       if (truckingRes.ok) {
@@ -61,11 +87,53 @@ export default function Analytics() {
         const routesData = await routesRes.json();
         setRoutes(routesData);
       }
+
+      if (trucksRes.ok) {
+        const trucksData = await trucksRes.json();
+        setTrucks(trucksData);
+      } else {
+        console.error('Trucks API Error:', trucksRes.status, trucksRes.statusText);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClearClick = () => {
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmClear = async () => {
+    setShowConfirmModal(false);
+    
+    try {
+      setClearingData(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiUrl}/api/v1/trucking/clear/`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast.success(`Successfully cleared ${result.deleted_count} trucking account records`);
+        // Refresh data after clearing
+        await fetchData();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to clear trucking data');
+      }
+    } catch (error) {
+      console.error('Error clearing trucking data:', error);
+      toast.error('Failed to clear trucking data');
+    } finally {
+      setClearingData(false);
+    }
+  };
+
+  const handleCancelClear = () => {
+    setShowConfirmModal(false);
   };
 
   if (!isLoggedIn) {
@@ -110,12 +178,15 @@ export default function Analytics() {
 
     filteredAccounts.forEach((account: any) => {
       const finalTotal = parseFloat(account.final_total?.toString() || '0');
-      const accountType = account.account_type?.toLowerCase() || '';
+      // Handle account_type as nested object or string
+      const accountType = getAccountTypeName(account.account_type);
+      const accountTypeLower = accountType.toLowerCase();
 
-      if (accountType.includes('hauling income')) {
+      if (accountTypeLower.includes('hauling income')) {
         // Use the same calculation as the revenue page (profit and loss analysis)
-        const frontLoad = account.front_load?.toString() || '';
-        const backLoad = account.back_load?.toString() || '';
+        // Handle front_load and back_load as nested objects or strings
+        const frontLoad = account.front_load?.name?.toString() || account.front_load?.toString() || '';
+        const backLoad = account.back_load?.name?.toString() || account.back_load?.toString() || '';
         const remarks = account.remarks || '';
         
         // Check if it's Rice Hull Ton (other income)
@@ -141,16 +212,16 @@ export default function Analytics() {
           }
         }
       } else if (
-        accountType.includes('fuel') ||
-        accountType.includes('driver\'s allowance')
+        accountTypeLower.includes('fuel') ||
+        accountTypeLower.includes('driver\'s allowance')
       ) {
         monthlyExpenses += finalTotal;
       } else if (
-        accountType === 'insurance expense' ||
-        accountType === 'repairs and maintenance expense' ||
-        accountType === 'taxes, permits and licenses expense' ||
-        accountType === 'salaries and wages' ||
-        accountType === 'tax expense'
+        accountTypeLower === 'insurance expense' ||
+        accountTypeLower === 'repairs and maintenance expense' ||
+        accountTypeLower === 'taxes, permits and licenses expense' ||
+        accountTypeLower === 'salaries and wages' ||
+        accountTypeLower === 'tax expense'
       ) {
         // Don't include OPEX in monthly expenses
       }
@@ -184,14 +255,14 @@ export default function Analytics() {
         // Count unique trucks by plate numbers (remove duplicates)
         const uniquePlateNumbers = new Set(
           accounts
-            .filter((acc: any) => acc.plate_number && acc.plate_number.trim() !== '')
-            .map((acc: any) => acc.plate_number.trim().toLowerCase())
+            .filter((acc: any) => (acc.truck && acc.truck.plate_number) || (acc.plate_number && acc.plate_number.trim() !== ''))
+            .map((acc: any) => (acc.truck && acc.truck.plate_number ? acc.truck.plate_number : acc.plate_number).trim().toLowerCase())
         );
         const totalTrucks = uniquePlateNumbers.size;
         
         // Count entries per account type
         const accountTypeCounts = accounts.reduce((acc: any, account: any) => {
-          const accountType = account.account_type || 'Unknown';
+          const accountType = getAccountTypeName(account.account_type) || 'Unknown';
           acc[accountType] = (acc[accountType] || 0) + 1;
           return acc;
         }, {});
@@ -246,8 +317,15 @@ export default function Analytics() {
       // Get unique trucks with plate numbers
       const uniqueTrucks = new Map();
       accounts.forEach((acc: any) => {
-        if (acc.plate_number && acc.plate_number.trim() !== '') {
-          const plate = acc.plate_number.trim();
+        // Handle both old format (plate_number) and new format (truck.plate_number)
+        let plate = null;
+        if (acc.truck && acc.truck.plate_number) {
+          plate = acc.truck.plate_number.trim();
+        } else if (acc.plate_number && acc.plate_number.trim() !== '') {
+          plate = acc.plate_number.trim();
+        }
+        
+        if (plate) {
           if (!uniqueTrucks.has(plate)) {
             uniqueTrucks.set(plate, {
               plate: plate,
@@ -300,22 +378,34 @@ export default function Analytics() {
              accountDate.getFullYear() === selectedDate.getFullYear();
     });
 
-    // Calculate revenue (positive amounts)
+    // Calculate revenue (only "Hauling Income" accounts)
     const revenue = monthAccounts
       .filter((acc: any) => {
-        const amount = parseFloat(acc.final_total || acc.amount || 0);
-        return amount > 0;
+        const accountType = getAccountTypeName(acc.account_type);
+        return accountType.toLowerCase().includes('hauling income');
       })
       .reduce((sum: number, acc: any) => sum + parseFloat(acc.final_total || acc.amount || 0), 0);
 
-    // Calculate expenses (negative amounts or specific expense types)
+    // Calculate expenses (specific account types only)
+    const expenseAccountTypes = [
+      'Salaries and Wages',
+      'Employee Benefits Expense',
+      'Repairs and Maintenance Expense',
+      'Insurance Expense',
+      'Fuel and Oil',
+      'Tax Expense',
+      'Taxes, Permits and Licenses Expense',
+      'Driver\'s Allowance'
+    ];
+    
     const expenses = monthAccounts
       .filter((acc: any) => {
-        const amount = parseFloat(acc.final_total || acc.amount || 0);
-        const accountType = (acc.account_type || '').toLowerCase();
-        return amount < 0 || accountType.includes('expense') || accountType.includes('fuel') || accountType.includes('maintenance');
+        const accountType = getAccountTypeName(acc.account_type);
+        return expenseAccountTypes.some(expenseType => 
+          accountType.toLowerCase() === expenseType.toLowerCase()
+        );
       })
-      .reduce((sum: number, acc: any) => sum + Math.abs(parseFloat(acc.final_total || acc.amount || 0)), 0);
+      .reduce((sum: number, acc: any) => sum + parseFloat(acc.final_total || acc.amount || 0), 0);
 
     const profit = revenue - expenses;
 
@@ -335,6 +425,34 @@ export default function Analytics() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* ToastContainer is added globally in layout.tsx */}
+      
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">Confirm Action</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to clear all trucking data? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={handleCancelClear}
+                className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-xl transition-all duration-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmClear}
+                className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <style jsx>{`
         .scrollbar-thin {
           scrollbar-width: none;
@@ -448,12 +566,21 @@ export default function Analytics() {
                   <h3 className="text-2xl font-bold text-gray-800 mb-2">Monthly Financials</h3>
                   <p className="text-gray-600">Track revenue, expenses, and profit for the selected month</p>
                 </div>
-                <Link
-                  href="/revenue"
-                  className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-black hover:to-gray-800 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
-                >
-                  See Details
-                </Link>
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleClearClick}
+                    disabled={clearingData}
+                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+                  >
+                    {clearingData ? 'Clearing...' : 'Clear Trucking Data'}
+                  </button>
+                  <Link
+                    href="/revenue"
+                    className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-black hover:to-gray-800 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    See Details
+                  </Link>
+                </div>
               </div>
               
               {/* Month Filter */}
@@ -556,7 +683,13 @@ export default function Analytics() {
                     // Get recent trips (limit to 10)
                     const recentTrips = accounts.slice(0, 10);
                     
-                    return recentTrips.map((trip: any, index: number) => (
+                    return recentTrips.map((trip: any, index: number) => {
+                      // Handle both old format (plate_number) and new format (truck.plate_number)
+                      const plateNumber = (trip.truck && trip.truck.plate_number) || trip.plate_number || 'No Plate';
+                      const driverName = getDriverName(trip.driver);
+                      const accountType = getAccountTypeName(trip.account_type);
+                      
+                      return (
                       <div key={index} className="flex items-center justify-between p-6 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
                         <div className="flex items-center space-x-4">
                           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
@@ -564,10 +697,10 @@ export default function Analytics() {
                           </div>
                           <div>
                             <div className="text-gray-800 font-semibold text-lg">
-                              {trip.driver || 'Unknown Driver'} - {trip.plate_number || 'No Plate'}
+                              {driverName || 'Unknown Driver'} - {plateNumber}
                             </div>
                             <div className="text-gray-600 text-sm">
-                              {trip.account_type || 'Unknown Type'} • {trip.date ? new Date(trip.date).toLocaleDateString() : 'No Date'}
+                              {accountType || 'Unknown Type'} • {trip.date ? new Date(trip.date).toLocaleDateString() : 'No Date'}
                             </div>
                           </div>
                         </div>
@@ -580,7 +713,8 @@ export default function Analytics() {
                           </div>
                         </div>
                       </div>
-                    ));
+                      );
+                    });
                   }
                   
                   // Fallback mock data
@@ -660,45 +794,18 @@ export default function Analytics() {
                 </div>
               </div>
               <div className="space-y-3 max-h-80 overflow-y-auto scrollbar-thin">
-                {(() => {
-                  if (apiData) {
-                    let accounts = [];
-                    if (apiData.accounts) {
-                      accounts = apiData.accounts;
-                    } else if (Array.isArray(apiData)) {
-                      accounts = apiData;
-                    } else if (apiData.data && Array.isArray(apiData.data)) {
-                      accounts = apiData.data;
-                    }
-                    
-                    // Get unique trucks
-                    const uniqueTrucks = new Set();
-                    accounts.forEach((acc: any) => {
-                      if (acc.plate_number && acc.plate_number.trim() !== '') {
-                        uniqueTrucks.add(acc.plate_number.trim());
-                      }
-                    });
-                    
-                    return Array.from(uniqueTrucks).map((truck, index) => (
-                      <div key={index} className="flex items-center space-x-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                          <span className="text-white text-sm font-bold">{index + 1}</span>
-                        </div>
-                        <div className="text-gray-800 font-semibold">{truck as string}</div>
-                      </div>
-                    ));
-                  }
-                  
-                  // Fallback mock data
-                  return ['TR-001', 'TR-002', 'TR-003', 'TR-004', 'TR-005'].map((truck, index) => (
-                    <div key={index} className="flex items-center space-x-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
+                {trucks.length > 0 ? (
+                  trucks.map((truck, index) => (
+                    <div key={truck.id} className="flex items-center space-x-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
                         <span className="text-white text-sm font-bold">{index + 1}</span>
                       </div>
-                      <div className="text-gray-800 font-semibold">{truck}</div>
+                      <div className="text-gray-800 font-semibold">{truck.plate_number}</div>
                     </div>
-                  ));
-                })()}
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No trucks available</p>
+                )}
               </div>
             </div>
           </div>
