@@ -173,44 +173,43 @@ export default function DriversPage() {
       const isHaulingIncome = accountTypeName.toLowerCase().includes('hauling income');
       
       if (isHaulingIncome) {
-        // For Hauling Income, check front_load and back_load
-        const frontLoadName = getLoadTypeName(record.front_load);
-        const backLoadName = getLoadTypeName(record.back_load);
+        // Check if remarks contain "rice hull ton" - treat as front_load
+        const isRiceHullTon = record.remarks && record.remarks.toLowerCase().includes('rice hull ton');
         
-        const hasFrontLoad = frontLoadName && 
-          frontLoadName.trim() !== '' && 
-          frontLoadName.toLowerCase() !== 'nan' &&
-          frontLoadName.toLowerCase() !== 'n' &&
-          frontLoadName.toLowerCase() !== 'none';
-        
-        const hasBackLoad = backLoadName && 
-          backLoadName.trim() !== '' && 
-          backLoadName.toLowerCase() !== 'nan' &&
-          backLoadName.toLowerCase() !== 'none';
+        if (isRiceHullTon) {
+          // Treat Rice Hull Ton as front_load
+          driver.front_load_amount += finalTotal;
+          driver.total_loads += 1;
 
-        // Check if front_load or back_load is "Strike" (case-insensitive)
-        const isFrontLoadStrike = hasFrontLoad && frontLoadName.toLowerCase().includes('strike');
-        const isBackLoadStrike = hasBackLoad && backLoadName.toLowerCase().includes('strike');
+          driver.details.push({
+            reference_number: record.reference_number || 'N/A',
+            account_number: record.account_number,
+            date: record.date,
+            amount: finalTotal,
+            load_type: 'front_load',
+            route: getRouteName(record.route),
+            description: `${record.description} (Rice Hull Ton)`,
+            account_type: accountTypeName,
+          });
+        } else {
+          // For Hauling Income, check front_load and back_load
+          const frontLoadName = getLoadTypeName(record.front_load);
+          const backLoadName = getLoadTypeName(record.back_load);
+          
+          const hasFrontLoad = frontLoadName && 
+            frontLoadName.trim() !== '' && 
+            frontLoadName.toLowerCase() !== 'nan' &&
+            frontLoadName.toLowerCase() !== 'n' &&
+            frontLoadName.toLowerCase() !== 'none';
+          
+          const hasBackLoad = backLoadName && 
+            backLoadName.trim() !== '' && 
+            backLoadName.toLowerCase() !== 'nan' &&
+            backLoadName.toLowerCase() !== 'none';
 
-        // Skip if both are Strike or if only one exists and it's Strike
-        if (isFrontLoadStrike && isBackLoadStrike) {
-          // Both are Strike - skip this record entirely
-          return;
-        }
-        if (isFrontLoadStrike && !hasBackLoad) {
-          // Only front load exists and it's Strike - skip this record
-          return;
-        }
-        if (isBackLoadStrike && !hasFrontLoad) {
-          // Only back load exists and it's Strike - skip this record
-          return;
-        }
-
-        // Handle different combinations
-        if (hasFrontLoad && hasBackLoad) {
-          // Both loads present
-          if (isFrontLoadStrike) {
-            // Front load is Strike - all amount goes to back load
+          // Special case: If front_load is "Strike", all amount goes to back_load
+          if (hasFrontLoad && frontLoadName.toLowerCase() === 'strike') {
+            // Strike case - all amount goes to back load, front load amount stays 0
             driver.back_load_amount += finalTotal;
             driver.total_loads += 1;
 
@@ -221,26 +220,11 @@ export default function DriversPage() {
               amount: finalTotal,
               load_type: 'back_load',
               route: getRouteName(record.route),
-              description: `${record.description} (Back: ${backLoadName})`,
+              description: `${record.description} (Back: ${backLoadName || 'N/A'})`,
               account_type: accountTypeName,
             });
-          } else if (isBackLoadStrike) {
-            // Back load is Strike - all amount goes to front load
-            driver.front_load_amount += finalTotal;
-            driver.total_loads += 1;
-
-            driver.details.push({
-              reference_number: record.reference_number || 'N/A',
-              account_number: record.account_number,
-              date: record.date,
-              amount: finalTotal,
-              load_type: 'front_load',
-              route: getRouteName(record.route),
-              description: `${record.description} (Front: ${frontLoadName})`,
-              account_type: accountTypeName,
-            });
-          } else {
-            // Neither is Strike - split amount equally
+          } else if (hasFrontLoad && hasBackLoad) {
+            // Both loads present - split amount
             const halfAmount = finalTotal / 2;
             driver.front_load_amount += halfAmount;
             driver.back_load_amount += halfAmount;
@@ -269,37 +253,52 @@ export default function DriversPage() {
               description: `${record.description} (Back: ${backLoadName})`,
               account_type: accountTypeName,
             });
+          } else if (hasFrontLoad) {
+            // Only front load
+            driver.front_load_amount += finalTotal;
+            driver.total_loads += 1;
+
+            driver.details.push({
+              reference_number: record.reference_number || 'N/A',
+              account_number: record.account_number,
+              date: record.date,
+              amount: finalTotal,
+              load_type: 'front_load',
+              route: getRouteName(record.route),
+              description: `${record.description} (Front: ${frontLoadName})`,
+              account_type: accountTypeName,
+            });
+          } else if (hasBackLoad) {
+            // Only back load
+            driver.back_load_amount += finalTotal;
+            driver.total_loads += 1;
+
+            driver.details.push({
+              reference_number: record.reference_number || 'N/A',
+              account_number: record.account_number,
+              date: record.date,
+              amount: finalTotal,
+              load_type: 'back_load',
+              route: getRouteName(record.route),
+              description: `${record.description} (Back: ${backLoadName})`,
+              account_type: accountTypeName,
+            });
+          } else {
+            // No front_load or back_load - treat as front_load
+            driver.front_load_amount += finalTotal;
+            driver.total_loads += 1;
+
+            driver.details.push({
+              reference_number: record.reference_number || 'N/A',
+              account_number: record.account_number,
+              date: record.date,
+              amount: finalTotal,
+              load_type: 'front_load',
+              route: getRouteName(record.route),
+              description: record.description,
+              account_type: accountTypeName,
+            });
           }
-        } else if (hasFrontLoad && !isFrontLoadStrike) {
-          // Only front load and it's NOT Strike
-          driver.front_load_amount += finalTotal;
-          driver.total_loads += 1;
-
-          driver.details.push({
-            reference_number: record.reference_number || 'N/A',
-            account_number: record.account_number,
-            date: record.date,
-            amount: finalTotal,
-            load_type: 'front_load',
-            route: getRouteName(record.route),
-            description: `${record.description} (Front: ${frontLoadName})`,
-            account_type: accountTypeName,
-          });
-        } else if (hasBackLoad && !isBackLoadStrike) {
-          // Only back load and it's NOT Strike
-          driver.back_load_amount += finalTotal;
-          driver.total_loads += 1;
-
-          driver.details.push({
-            reference_number: record.reference_number || 'N/A',
-            account_number: record.account_number,
-            date: record.date,
-            amount: finalTotal,
-            load_type: 'back_load',
-            route: getRouteName(record.route),
-            description: `${record.description} (Back: ${backLoadName})`,
-            account_type: accountTypeName,
-          });
         }
       } else if (accountTypeName.toLowerCase().includes('driver\'s allowance')) {
         // Driver's Allowance - treat as actual allowance
@@ -575,7 +574,7 @@ export default function DriversPage() {
                       Total Loads
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total Amount
+                      Net Profit
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -584,7 +583,7 @@ export default function DriversPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                 {driversData.drivers.map((driver) => {
-                  const totalAmount = driver.front_load_amount + driver.back_load_amount + driver.fuel_and_oil_amount + driver.allowance_amount;
+                  const netProfit = (driver.front_load_amount + driver.back_load_amount) - (driver.fuel_and_oil_amount + driver.allowance_amount);
                   return (
                     <>
                       <tr key={driver.driver_name} className="hover:bg-gray-50 transition-colors duration-200">
@@ -619,8 +618,8 @@ export default function DriversPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 font-bold">
-                            {formatCurrency(totalAmount)}
+                          <div className={`text-sm font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(Math.abs(netProfit))}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -740,3 +739,4 @@ export default function DriversPage() {
     </div>
   );
 }
+

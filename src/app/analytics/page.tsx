@@ -7,6 +7,33 @@ import Navbar from '@/components/Navbar';
 import SkeletonLoader from '@/components/SkeletonLoader';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 export default function Analytics() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -15,9 +42,11 @@ export default function Analytics() {
   const [tripsData, setTripsData] = useState<any>(null);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);
+  const [loadTypes, setLoadTypes] = useState<any[]>([]);
   const [trucks, setTrucks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // Default to current month (YYYY-MM)
+  const [isAccountOverviewExpanded, setIsAccountOverviewExpanded] = useState(false); // Toggle for account overview container
   const [clearingData, setClearingData] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const router = useRouter();
@@ -58,15 +87,34 @@ export default function Analytics() {
     return '';
   };
 
+  const getRouteName = (route: any): string => {
+    if (!route) return '';
+    if (typeof route === 'string') return route;
+    if (typeof route === 'object' && route !== null && 'name' in route) {
+      return route.name;
+    }
+    return '';
+  };
+
+  const getLoadTypeName = (loadType: any): string => {
+    if (!loadType) return '';
+    if (typeof loadType === 'string') return loadType;
+    if (typeof loadType === 'object' && loadType !== null && 'name' in loadType) {
+      return loadType.name;
+    }
+    return '';
+  };
+
   const fetchData = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
       
       // Fetch all data in parallel
-      const [truckingRes, driversRes, routesRes, trucksRes] = await Promise.all([
+      const [truckingRes, driversRes, routesRes, loadTypesRes, trucksRes] = await Promise.all([
         fetch(`${apiUrl}/api/v1/trucking/`),
         fetch(`${apiUrl}/api/v1/drivers/`),
         fetch(`${apiUrl}/api/v1/routes/`),
+        fetch(`${apiUrl}/api/v1/load-types/`),
         fetch(`${apiUrl}/api/v1/trucks/`)
       ]);
       
@@ -85,9 +133,32 @@ export default function Analytics() {
       
       if (routesRes.ok) {
         const routesData = await routesRes.json();
-        setRoutes(routesData);
+        // Handle different response structures
+        if (Array.isArray(routesData)) {
+          setRoutes(routesData);
+        } else if (routesData && Array.isArray(routesData.data)) {
+          setRoutes(routesData.data);
+        } else if (routesData && Array.isArray(routesData.results)) {
+          setRoutes(routesData.results);
+        } else {
+          setRoutes([]);
+        }
       }
-
+      
+      if (loadTypesRes.ok) {
+        const loadTypesData = await loadTypesRes.json();
+        // Handle different response structures
+        if (Array.isArray(loadTypesData)) {
+          setLoadTypes(loadTypesData);
+        } else if (loadTypesData && Array.isArray(loadTypesData.data)) {
+          setLoadTypes(loadTypesData.data);
+        } else if (loadTypesData && Array.isArray(loadTypesData.results)) {
+          setLoadTypes(loadTypesData.results);
+        } else {
+          setLoadTypes([]);
+        }
+      }
+      
       if (trucksRes.ok) {
         const trucksData = await trucksRes.json();
         setTrucks(trucksData);
@@ -238,6 +309,18 @@ export default function Analytics() {
     // Use drivers from API directly
     const totalDrivers = drivers.length;
     
+    // Get routes from API - routes should already be an array after fetchData processing
+    let routesArray: any[] = [];
+    if (routes && Array.isArray(routes)) {
+      routesArray = routes;
+    }
+    
+    // Get load types from API - loadTypes should already be an array after fetchData processing
+    let loadTypesArray: any[] = [];
+    if (loadTypes && Array.isArray(loadTypes)) {
+      loadTypesArray = loadTypes;
+    }
+    
     if (apiData) {
       // Handle different possible API response structures
       let accounts = [];
@@ -266,12 +349,50 @@ export default function Analytics() {
           acc[accountType] = (acc[accountType] || 0) + 1;
           return acc;
         }, {});
+
+        // Get routes from API endpoint
+        let routesList: string[] = [];
+        routesArray.forEach((route: any) => {
+          let routeName = '';
+          if (typeof route === 'string') {
+            routeName = route;
+          } else if (route && typeof route === 'object') {
+            // Try different possible field names
+            routeName = route.name || route.route_name || route.route || '';
+          }
+          if (routeName && routeName.trim() !== '' && routeName.toLowerCase() !== 'nan' && routeName.toLowerCase() !== 'null') {
+            routesList.push(routeName.trim());
+          }
+        });
+        routesList.sort();
+        const totalRoutes = routesList.length;
+
+        // Get load types from API endpoint
+        let loadTypesList: string[] = [];
+        loadTypesArray.forEach((loadType: any) => {
+          let loadTypeName = '';
+          if (typeof loadType === 'string') {
+            loadTypeName = loadType;
+          } else if (loadType && typeof loadType === 'object') {
+            // Try different possible field names
+            loadTypeName = loadType.name || loadType.load_name || loadType.load_type || '';
+          }
+          if (loadTypeName && loadTypeName.trim() !== '' && loadTypeName.toLowerCase() !== 'nan' && loadTypeName.toLowerCase() !== 'null') {
+            loadTypesList.push(loadTypeName.trim());
+          }
+        });
+        loadTypesList.sort();
+        const totalLoadTypes = loadTypesList.length;
         
         return {
           totalTrucks,
           totalDrivers,
           totalAccounts,
           accountTypeCounts,
+          totalRoutes,
+          totalLoadTypes,
+          routesList,
+          loadTypesList,
           monthlyRevenue: 285000, // Mock data
           pendingDeliveries: 18, // Mock data
           completedTrips: 342 // Mock data
@@ -285,6 +406,10 @@ export default function Analytics() {
       totalDrivers,
       totalAccounts: 0,
       accountTypeCounts: {},
+      totalRoutes: 0,
+      totalLoadTypes: 0,
+      routesList: [],
+      loadTypesList: [],
       monthlyRevenue: 285000,
       pendingDeliveries: 18,
       completedTrips: 342
@@ -293,14 +418,187 @@ export default function Analytics() {
 
   const data = calculateData();
 
-  const chartData = [
-    { month: 'Jan', revenue: 180000 },
-    { month: 'Feb', revenue: 220000 },
-    { month: 'Mar', revenue: 195000 },
-    { month: 'Apr', revenue: 250000 },
-    { month: 'May', revenue: 280000 },
-    { month: 'Jun', revenue: 285000 }
-  ];
+  // Prepare chart data functions
+  const prepareMonthlyTrendData = () => {
+    if (!apiData) {
+      // Return mock data if no API data
+      return {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        datasets: [
+          {
+            label: 'Revenue',
+            data: [180000, 220000, 195000, 250000, 280000, 285000],
+            borderColor: 'rgba(16, 185, 129, 1)',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            tension: 0.4
+          },
+          {
+            label: 'Expenses',
+            data: [120000, 140000, 130000, 150000, 160000, 165000],
+            borderColor: 'rgba(239, 68, 68, 1)',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            fill: true,
+            tension: 0.4
+          },
+          {
+            label: 'Profit',
+            data: [60000, 80000, 65000, 100000, 120000, 120000],
+            borderColor: 'rgba(59, 130, 246, 1)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.4
+          }
+        ]
+      };
+    }
+
+    // Group by month and calculate revenue/expenses
+    let accounts = [];
+    if (apiData.accounts) {
+      accounts = apiData.accounts;
+    } else if (Array.isArray(apiData)) {
+      accounts = apiData;
+    } else if (apiData.data && Array.isArray(apiData.data)) {
+      accounts = apiData.data;
+    }
+
+    const monthlyData: { [key: string]: { revenue: number; expenses: number } } = {};
+    
+    // Use the same expense account types as calculateMonthlyFinancials
+    const expenseAccountTypes = [
+      'Salaries and Wages',
+      'Employee Benefits Expense',
+      'Repairs and Maintenance Expense',
+      'Insurance Expense',
+      'Fuel and Oil',
+      'Tax Expense',
+      'Taxes, Permits and Licenses Expense',
+      'Driver\'s Allowance'
+    ];
+    
+    accounts.forEach((account: any) => {
+      const date = account.date ? new Date(account.date) : null;
+      if (!date || isNaN(date.getTime())) return;
+      
+      const monthKey = date.toLocaleDateString('en-US', { month: 'short' });
+      const accountType = getAccountTypeName(account.account_type);
+      const accountTypeLower = accountType.toLowerCase();
+      const finalTotal = parseFloat(account.final_total || account.amount || 0);
+
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = { revenue: 0, expenses: 0 };
+      }
+
+      // Calculate revenue (only "Hauling Income" accounts) - same logic as calculateMonthlyFinancials
+      if (accountTypeLower.includes('hauling income')) {
+        monthlyData[monthKey].revenue += finalTotal;
+      } 
+      // Calculate expenses (using the same logic as calculateMonthlyFinancials)
+      else if (expenseAccountTypes.some(expenseType => 
+        accountType.toLowerCase() === expenseType.toLowerCase()
+      )) {
+        monthlyData[monthKey].expenses += finalTotal;
+      }
+    });
+
+    const months = Object.keys(monthlyData).sort((a, b) => {
+      const monthOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return monthOrder.indexOf(a) - monthOrder.indexOf(b);
+    });
+
+    return {
+      labels: months,
+      datasets: [
+        {
+          label: 'Revenue',
+          data: months.map(month => monthlyData[month]?.revenue || 0),
+          borderColor: 'rgba(16, 185, 129, 1)',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          fill: true,
+          tension: 0.4
+        },
+        {
+          label: 'Expenses',
+          data: months.map(month => monthlyData[month]?.expenses || 0),
+          borderColor: 'rgba(239, 68, 68, 1)',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          fill: true,
+          tension: 0.4
+        },
+        {
+          label: 'Profit',
+          data: months.map(month => (monthlyData[month]?.revenue || 0) - (monthlyData[month]?.expenses || 0)),
+          borderColor: 'rgba(59, 130, 246, 1)',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          fill: true,
+          tension: 0.4
+        }
+      ]
+    };
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: {
+          font: {
+            size: 12,
+            weight: 'bold' as const
+          },
+          padding: 15,
+          usePointStyle: true
+        }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        padding: 12,
+        titleFont: {
+          size: 14,
+          weight: 'bold' as const
+        },
+        bodyFont: {
+          size: 12
+        },
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        displayColors: true,
+        callbacks: {
+          label: function(context: any) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              label += '₱' + context.parsed.y.toLocaleString();
+            }
+            return label;
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value: any) {
+            return '₱' + value.toLocaleString();
+          }
+        },
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)'
+        }
+      },
+      x: {
+        grid: {
+          display: false
+        }
+      }
+    }
+  };
 
   // Get first 3 unique trucks from API data
   const getActiveTrucks = () => {
@@ -508,20 +806,35 @@ export default function Analytics() {
           {/* Account Entries Cards Section */}
           <div className="mb-8">
             <div className="gradient-card rounded-2xl p-8 elevated-box">
-              <div className="flex justify-between items-center mb-8">
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-2">Account Entries Overview</h3>
-                  <p className="text-gray-600">Track all account types and their entries</p>
+              <div 
+                className="flex justify-between items-center mb-8 cursor-pointer"
+                onClick={() => setIsAccountOverviewExpanded(!isAccountOverviewExpanded)}
+              >
+                <div className="flex items-center gap-3 flex-1">
+                  <div className={`transform transition-transform duration-300 ${isAccountOverviewExpanded ? 'rotate-180' : ''}`}>
+                    <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-bold text-gray-800 mb-2">Account Entries Overview</h3>
+                    <p className="text-gray-600">Track all account types and their entries</p>
+                  </div>
                 </div>
-                <Link
-                  href="/accounts"
-                  className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-black hover:to-gray-800 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
-                >
-                  See Details
-                </Link>
+                <div className="flex items-center gap-4">
+                  <Link
+                    href="/accounts"
+                    onClick={(e) => e.stopPropagation()}
+                    className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-black hover:to-gray-800 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    See Details
+                  </Link>
+                </div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                {Object.entries(data.accountTypeCounts).map(([type, count], index) => {
+              {isAccountOverviewExpanded && data && (
+                <>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                {Object.entries(data.accountTypeCounts || {}).map(([type, count], index) => {
                   const colors = [
                     { bg: 'bg-blue-500', border: 'border-blue-400', icon: '🚛' },
                     { bg: 'bg-red-500', border: 'border-red-400', icon: '⏰' },
@@ -554,6 +867,21 @@ export default function Analytics() {
                     </div>
                   );
                 })}
+                </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Charts Section */}
+          <div className="mb-8">
+            <div className="gradient-card rounded-2xl p-8 elevated-box">
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">Monthly Financial Trend</h3>
+                <p className="text-gray-600">Revenue, expenses, and profit over time</p>
+              </div>
+              <div className="h-80">
+                <Line data={prepareMonthlyTrendData()} options={chartOptions} />
               </div>
             </div>
           </div>
@@ -805,6 +1133,65 @@ export default function Analytics() {
                   ))
                 ) : (
                   <p className="text-gray-500 text-center py-4">No trucks available</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Routes and Loads Boxes Section */}
+          <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Routes Box */}
+            <div className="gradient-card rounded-2xl p-8 elevated-box">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">Routes</h3>
+                  <p className="text-gray-600">Total unique routes in the system</p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center">
+                  <span className="text-white text-xl">🛣️</span>
+                </div>
+              </div>
+              <div className="text-4xl font-bold text-indigo-600 mb-4">{data?.totalRoutes || 0}</div>
+              <div className="space-y-3 max-h-80 overflow-y-auto scrollbar-thin">
+                {data?.routesList && data.routesList.length > 0 ? (
+                  data.routesList.map((route: string, index: number) => (
+                    <div key={index} className="flex items-center space-x-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center">
+                        <span className="text-white text-sm font-bold">{index + 1}</span>
+                      </div>
+                      <div className="text-gray-800 font-semibold">{route}</div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No routes available</p>
+                )}
+              </div>
+            </div>
+
+            {/* Load Types Box */}
+            <div className="gradient-card rounded-2xl p-8 elevated-box">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">Load Types</h3>
+                  <p className="text-gray-600">Total unique load types in the system</p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
+                  <span className="text-white text-xl">📦</span>
+                </div>
+              </div>
+              <div className="text-4xl font-bold text-teal-600 mb-4">{data?.totalLoadTypes || 0}</div>
+              <div className="space-y-3 max-h-80 overflow-y-auto scrollbar-thin">
+                {data?.loadTypesList && data.loadTypesList.length > 0 ? (
+                  data.loadTypesList.map((loadType: string, index: number) => (
+                    <div key={index} className="flex items-center space-x-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
+                        <span className="text-white text-sm font-bold">{index + 1}</span>
+                      </div>
+                      <div className="text-gray-800 font-semibold">{loadType}</div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No load types available</p>
                 )}
               </div>
             </div>
